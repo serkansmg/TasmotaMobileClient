@@ -5,13 +5,14 @@ A modern .NET MAUI Blazor application for controlling Tasmota-based relay boards
 
 This application was developed with the goal of creating a stable, robust ESP32 firmware solution for 2-channel and 8-channel relay boards. Tasmota proved to be an excellent choice for this purpose, providing reliable firmware with comprehensive HTTP API support.
 
-![App Overview](screenshots/dashboard.jpg)
+<img src="screenshots/dashboard.jpg" alt="Main Dashboard" width="300">
+
 
 ## Hardware
 
 The application is designed to work with ESP32-based relay boards, particularly the 8-channel WiFi Bluetooth relay board shown below:
 
-![ESP32 8-Channel Relay Board](screenshots/esp32-wifi-bluetooth-8-relay-board.jpg)
+<img src="screenshots/esp32-wifi-bluetooth-8-relay-board.jpg" alt="ESP32 8-Channel Relay Board" width="400">
 
 ### Recommended Hardware
 
