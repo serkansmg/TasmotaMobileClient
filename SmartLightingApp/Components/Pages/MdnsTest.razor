@@ -1,0 +1,137 @@
+@page "/mdns"
+@inject TasmotaMdnsDiscoveryService mdnsService
+@implements IDisposable
+
+<h3>Tasmota Device Discovery</h3>
+
+<div class="mb-3">
+    <button class="btn btn-primary me-2" @onclick="StartDiscovery" disabled="@mdnsService.IsRunning">
+        Start Discovery
+    </button>
+    <button class="btn btn-secondary me-2" @onclick="StopDiscovery" disabled="@(!mdnsService.IsRunning)">
+        Stop Discovery
+    </button>
+    <button class="btn btn-warning me-2" @onclick="SendManualQueries" disabled="@(!mdnsService.IsRunning)">
+        Manual Scan
+    </button>
+    <button class="btn btn-info me-2" @onclick="TestSocket">
+        Test Socket
+    </button>
+    <button class="btn btn-success" @onclick="ClearDevices">
+        Clear List
+    </button>
+</div>
+
+<div class="mb-3">
+    <span class="badge @(mdnsService.IsRunning ? "bg-success" : "bg-secondary")">
+        @(mdnsService.IsRunning ? "Scanning..." : "Stopped")
+    </span>
+    <span class="badge bg-info ms-2">
+        Found: @mdnsService.DiscoveredDevices.Count devices
+    </span>
+</div>
+
+@if (mdnsService.DiscoveredDevices.Any())
+{
+    <table class="table table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Device ID</th>
+                <th>IP Address</th>
+                <th>Port</th>
+                <th>Version</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var device in mdnsService.DiscoveredDevices)
+            {
+                <tr>
+                    <td>
+                        <strong>@device.DeviceId</strong>
+                    </td>
+                    <td>
+                        <code>@device.IpAddress</code>
+                    </td>
+                    <td>@device.Port</td>
+                    <td>@(device.Version ?? "-")</td>
+                    <td>@device.LastSeen.ToString("HH:mm:ss")</td>
+                    <td>
+                        <a href="http://@device.IpAddress" target="_blank" class="btn btn-sm btn-outline-primary">
+                            Open Web UI
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        No Tasmota devices found. Click "Start Discovery" to scan for devices.
+    </div>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        mdnsService.DeviceDiscovered += OnDeviceDiscovered;
+        mdnsService.DeviceLost += OnDeviceLost;
+    }
+
+    private async void OnDeviceDiscovered(TasmotaDiscoveredDevice device)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnDeviceLost(TasmotaDiscoveredDevice device)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task StartDiscovery()
+    {
+        try
+        {
+            await mdnsService.StartDiscoveryAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // Handle error - could show toast notification
+            Console.WriteLine($"Discovery error: {ex.Message}");
+        }
+    }
+
+    private void StopDiscovery()
+    {
+        mdnsService.StopDiscovery();
+        StateHasChanged();
+    }
+
+    private async Task SendManualQueries()
+    {
+        await mdnsService.SendManualQueries();
+    }
+
+    private async Task TestSocket()
+    {
+        await mdnsService.TestMulticastSocket();
+    }
+
+    private void ClearDevices()
+    {
+        mdnsService.ClearDiscoveredDevices();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        mdnsService.DeviceDiscovered -= OnDeviceDiscovered;
+        mdnsService.DeviceLost -= OnDeviceLost;
+        mdnsService?.StopDiscovery();
+    }
+}

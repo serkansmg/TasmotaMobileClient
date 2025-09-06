@@ -1,0 +1,485 @@
+@page "/discovery"
+@using SmartLightingApp.Services
+@using TasmotaSharp
+@inject TasmotaMdnsDiscoveryService mdnsService
+@inject RelayDataService relayDataService
+@inject TasmotaClient tasmotaClient
+@inject NavigationManager navigation
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<!-- Discovery Header -->
+<div class="header">
+    <div class="header-left">
+        <button class="back-btn" @onclick="GoBack">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="header-icon">
+            <i class="fas fa-search"></i>
+        </div>
+        <div class="header-title">
+            <h1>Cihaz Keşfi</h1>
+            <p class="header-subtitle">Tasmota cihazları bul ve ekle</p>
+        </div>
+    </div>
+</div>
+
+<!-- Discovery Controls -->
+<div class="discovery-controls">
+    <div class="control-buttons">
+        <button class="btn-primary-custom @(isScanning ? "btn-loading" : "")" 
+                @onclick="ToggleScanning" 
+                disabled="@isScanning">
+            <i class="fas @(isScanning ? "fa-spinner fa-spin" : "fa-play")"></i>
+            @(isScanning ? "Taranıyor..." : "Taramayı Başlat")
+        </button>
+        
+        <button class="btn-secondary-custom" 
+                @onclick="StopScanning" 
+                disabled="@(!isScanning)">
+            <i class="fas fa-stop"></i>
+            Durdur
+        </button>
+        
+        <button class="btn-secondary-custom" 
+                @onclick="ShowManualAddModal">
+            <i class="fas fa-plus"></i>
+            Manuel Ekle
+        </button>
+    </div>
+    
+    <!-- Status Information -->
+    <div class="discovery-status">
+        <div class="status-badges">
+            <span class="status-badge @(isScanning ? "scanning" : "stopped")">
+                <span class="status-dot"></span>
+                @(isScanning ? "Taranıyor" : "Durduruldu")
+            </span>
+            <span class="devices-count-badge">
+                <i class="fas fa-microchip"></i>
+                @discoveredDevices.Count cihaz bulundu
+            </span>
+        </div>
+        
+        @if (isScanning)
+        {
+            <div class="scan-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p class="scan-text">Ağda Tasmota cihazları aranıyor...</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Discovered Devices List -->
+<div class="devices-section">
+    @if (discoveredDevices.Any())
+    {
+        <div class="devices-grid">
+            @foreach (var device in discoveredDevices.OrderBy(d => d.DeviceId))
+            {
+                <div class="device-card @(addedDeviceIds.Contains(device.DeviceId) ? "added" : "")">
+                    <div class="device-header">
+                        <div class="device-icon">
+                            <i class="fas fa-microchip"></i>
+                        </div>
+                        <div class="device-info">
+                            <h3 class="device-name">@device.DeviceId</h3>
+                            <p class="device-ip">@device.IpAddress</p>
+                            @if (!string.IsNullOrEmpty(device.Version))
+                            {
+                                <p class="device-version">Firmware: @device.Version</p>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="device-details">
+                        <div class="detail-item">
+                            <i class="fas fa-network-wired"></i>
+                            <span>Port: @device.Port</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-clock"></i>
+                            <span>@GetTimeAgo(device.LastSeen)</span>
+                        </div>
+                    </div>
+                    
+                    <div class="device-actions">
+                        <a href="http://@device.IpAddress" target="_blank" 
+                           class="btn-secondary-custom btn-small">
+                            <i class="fas fa-external-link-alt"></i>
+                            Web UI
+                        </a>
+                        
+                        @if (addedDeviceIds.Contains(device.DeviceId))
+                        {
+                            <button class="btn-success-custom btn-small" disabled>
+                                <i class="fas fa-check"></i>
+                                Eklendi
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn-primary-custom btn-small" 
+                                    @onclick="() => AddDevice(device)"
+                                    disabled="@(processingDeviceId == device.DeviceId)">
+                                @if (processingDeviceId == device.DeviceId)
+                                {
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <span>Ekleniyor...</span>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-plus"></i>
+                                    <span>Ekle</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (isScanning)
+    {
+        <div class="scanning-state">
+            <div class="scanning-icon">
+                <i class="fas fa-search fa-2x"></i>
+            </div>
+            <h3>Cihazlar Aranıyor</h3>
+            <p>Ağınızda Tasmota cihazları aranıyor. Bu işlem birkaç saniye sürebilir.</p>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <h3>Henüz Cihaz Bulunamadı</h3>
+            <p>Tasmota cihazları aramaya başlamak için "Taramayı Başlat" butonuna tıklayın.</p>
+            <button class="btn-primary-custom" @onclick="ToggleScanning">
+                <i class="fas fa-play"></i>
+                Taramayı Başlat
+            </button>
+        </div>
+    }
+</div>
+
+<!-- Bottom Safe Area -->
+<div class="bottom-safe-area"></div>
+
+@code {
+    private List<TasmotaDiscoveredDevice> discoveredDevices = new();
+    private HashSet<string> addedDeviceIds = new();
+    private bool isScanning = false;
+    private string? processingDeviceId = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load already added devices to prevent duplicates
+        var existingBoards = await relayDataService.GetAllBoardsAsync();
+        addedDeviceIds = existingBoards
+            .Select(b => ExtractDeviceIdFromBoard(b))
+            .Where(id => !string.IsNullOrEmpty(id))
+            .ToHashSet()!;
+
+        // Subscribe to mDNS events - KEEP IT SIMPLE!
+        mdnsService.DeviceDiscovered += OnDeviceDiscovered;
+        mdnsService.DeviceLost += OnDeviceLost;
+        mdnsService.LogMessage += OnLogMessage;
+
+        // Load existing discovered devices
+        discoveredDevices = mdnsService.DiscoveredDevices.ToList();
+    }
+
+    private string ExtractDeviceIdFromBoard(RelayBoard board)
+    {
+        // Simple extraction - you might need to adjust this logic
+        return board.Name.Replace(" ", "").ToLower();
+    }
+
+    private async void OnDeviceDiscovered(TasmotaDiscoveredDevice device)
+    {
+        // Keep it simple - just update the list, NO TasmotaClient calls here!
+        discoveredDevices = mdnsService.DiscoveredDevices.ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnDeviceLost(TasmotaDiscoveredDevice device)
+    {
+        discoveredDevices = mdnsService.DiscoveredDevices.ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnLogMessage(string message)
+    {
+        Console.WriteLine($"mDNS: {message}");
+    }
+
+    private async Task ToggleScanning()
+    {
+        if (isScanning) return;
+
+        try
+        {
+            isScanning = true;
+            StateHasChanged();
+
+            await mdnsService.StartDiscoveryAsync();
+            
+            // Auto-stop after 30 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(30000);
+                if (isScanning)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await StopScanning();
+                    });
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", "Tarama Hatası", ex.Message);
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopScanning()
+    {
+        if (!isScanning) return;
+
+        mdnsService.StopDiscovery();
+        isScanning = false;
+        StateHasChanged();
+    }
+
+   private async Task AddDevice(TasmotaDiscoveredDevice device)
+{
+   if (addedDeviceIds.Contains(device.DeviceId) || processingDeviceId == device.DeviceId)
+       return;
+
+   try
+   {
+       processingDeviceId = device.DeviceId;
+       StateHasChanged();
+
+       // TasmotaClient ile cihaz bilgilerini al
+       tasmotaClient.SetIp(device.IpAddress.ToString());
+       
+       var status = await tasmotaClient.GetStatusAsync();
+       if (status == null)
+       {
+           await JSRuntime.InvokeVoidAsync("showErrorAlert", 
+               "Bağlantı Hatası", 
+               $"{device.DeviceId} cihazına bağlanılamadı. Cihazın erişilebilir olduğundan emin olun.");
+           return;
+       }
+
+       string hostname = status.StatusNET?.Hostname ?? "";
+       string macAddress = status.StatusNET?.Mac ?? "";
+       string actualIp = status.StatusNET?.IPAddress ?? device.IpAddress.ToString();
+
+       // ÖNCE mevcut cihaz varsa güncelle (Name ve Relays'e dokunma)
+       var existingBoard = await relayDataService.FindAndUpdateByHostnameOrMacAsync(
+           hostname, macAddress, actualIp);
+
+       if (existingBoard != null)
+       {
+           addedDeviceIds.Add(device.DeviceId);
+           await JSRuntime.InvokeVoidAsync("showSuccessAlert", 
+               "Cihaz Güncellendi", 
+               $"'{existingBoard.Name}' cihazının bilgileri güncellendi (IP: {actualIp})");
+           return;
+       }
+
+       // YENİ CİHAZ EKLEME
+       var relayCount = await tasmotaClient.GetRelayCountAsync();
+       if (relayCount == null || relayCount == 0)
+       {
+           relayCount = 4; // Default fallback
+           await JSRuntime.InvokeVoidAsync("showInfoAlert", 
+               "Bilgi", 
+               $"Röle sayısı tespit edilemedi, varsayılan {relayCount} röle ile ekleniyor.");
+       }
+
+       string friendlyName = GetFriendlyDeviceName(status) ?? device.DeviceId;
+
+       // Yeni board oluştur
+       var newBoard = new RelayBoard
+       {
+           Name = friendlyName,
+           IpAddress = actualIp,
+           Hostname = hostname,
+           MacAddress = macAddress,
+           IsOnline = true,
+           LastSeen = DateTime.Now
+       };
+
+       // Röleleri ekle - gerçek durumları ile
+       for (int i = 1; i <= relayCount; i++)
+       {
+           bool? relayState = null;
+           try
+           {
+               relayState = await tasmotaClient.GetRelayStateAsync(i);
+           }
+           catch
+           {
+               // Tek tek röle hatalarını yoksay
+           }
+
+           var relay = new RelayItem(i)
+           {
+               Name = $"Röle {i}",
+               IsOn = relayState ?? false,
+               LastToggled = DateTime.Now
+           };
+
+           newBoard.Relays.Add(relay);
+       }
+
+       // Servise kaydet
+       var addedBoard = await relayDataService.AddBoardAsync(newBoard);
+       addedDeviceIds.Add(device.DeviceId);
+
+       await JSRuntime.InvokeVoidAsync("showSuccessAlert", 
+           "Cihaz Eklendi", 
+           $"{friendlyName} başarıyla eklendi! ({relayCount} röle tespit edildi)");
+   }
+   catch (Exception ex)
+   {
+       await JSRuntime.InvokeVoidAsync("showErrorAlert", 
+           "Ekleme Hatası", 
+           $"Cihaz eklenirken hata oluştu: {ex.Message}");
+   }
+   finally
+   {
+       processingDeviceId = null;
+       StateHasChanged();
+   }
+}
+    private string? GetFriendlyDeviceName(TasmotaSharp.Models.TasmotaStatus status)
+    {
+        // Try different sources for friendly name
+        if (!string.IsNullOrEmpty(status.Status?.DeviceName))
+            return status.Status.DeviceName;
+            
+        if (status.Status?.FriendlyName?.Length > 0 && !string.IsNullOrEmpty(status.Status.FriendlyName[0]))
+            return status.Status.FriendlyName[0];
+            
+        if (!string.IsNullOrEmpty(status.StatusSTS?.Hostname))
+            return status.StatusSTS.Hostname;
+            
+        if (!string.IsNullOrEmpty(status.StatusNET?.Hostname))
+            return status.StatusNET.Hostname;
+
+        return null;
+    }
+
+    private async Task ShowManualAddModal()
+    {
+        var boardName = await JSRuntime.InvokeAsync<string>("prompt", "Cihaz adı:");
+        if (string.IsNullOrWhiteSpace(boardName)) return;
+
+        var boardIp = await JSRuntime.InvokeAsync<string>("prompt", "Cihaz IP adresi:");
+        if (string.IsNullOrWhiteSpace(boardIp)) return;
+
+        try
+        {
+            processingDeviceId = "manual";
+            StateHasChanged();
+
+            tasmotaClient.SetIp(boardIp);
+            var status = await tasmotaClient.GetStatusAsync();
+            
+            if (status == null)
+            {
+                await JSRuntime.InvokeVoidAsync("showErrorAlert", 
+                    "Bağlantı Hatası", 
+                    "Belirtilen IP adresindeki cihaza bağlanılamadı.");
+                return;
+            }
+
+            var relayCount = await tasmotaClient.GetRelayCountAsync() ?? 4;
+            
+            var newBoard = new RelayBoard
+            {
+                Name = boardName,
+                IpAddress = status.StatusNET?.IPAddress ?? boardIp,
+                IsOnline = true,
+                LastSeen = DateTime.Now
+            };
+
+            for (int i = 1; i <= relayCount; i++)
+            {
+                bool? relayState = null;
+                try
+                {
+                    relayState = await tasmotaClient.GetRelayStateAsync(i);
+                }
+                catch { }
+
+                newBoard.Relays.Add(new RelayItem(i)
+                {
+                    Name = $"Röle {i}",
+                    IsOn = relayState ?? false
+                });
+            }
+
+            await relayDataService.AddBoardAsync(newBoard);
+            
+            await JSRuntime.InvokeVoidAsync("showSuccessAlert", 
+                "Cihaz Eklendi", 
+                $"'{boardName}' başarıyla eklendi! ({relayCount} röle tespit edildi)");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", 
+                "Ekleme Hatası", 
+                $"Manuel cihaz eklenirken hata oluştu: {ex.Message}");
+        }
+        finally
+        {
+            processingDeviceId = null;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        navigation.NavigateTo("/");
+    }
+
+    private string GetTimeAgo(DateTime lastSeen)
+    {
+        var timeSpan = DateTime.Now - lastSeen;
+        
+        if (timeSpan.TotalMinutes < 1)
+            return "Az önce";
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes} dk önce";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours} saat önce";
+        
+        return lastSeen.ToString("dd.MM HH:mm");
+    }
+
+    public void Dispose()
+    {
+        mdnsService.DeviceDiscovered -= OnDeviceDiscovered;
+        mdnsService.DeviceLost -= OnDeviceLost;
+        mdnsService.LogMessage -= OnLogMessage;
+        
+        if (isScanning)
+        {
+            mdnsService.StopDiscovery();
+        }
+    }
+}

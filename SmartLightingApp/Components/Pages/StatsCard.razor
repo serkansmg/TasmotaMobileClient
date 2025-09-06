@@ -1,0 +1,18 @@
+@namespace SmartLightingApp.Components.Pages
+
+<!-- Stats Section -->
+<div class="stats-section-compact">
+    <div class="stats-row">
+        <div class="stats-icon">
+            <i class="fas fa-microchip"></i>
+        </div>
+        <div class="stats-info">
+            <span class="stats-number">@BoardCount</span>
+            <span class="stats-label">relay board</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int BoardCount { get; set; } = 0;
+}

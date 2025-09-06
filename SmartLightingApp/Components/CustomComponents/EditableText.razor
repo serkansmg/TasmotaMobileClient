@@ -1,0 +1,140 @@
+@namespace SmartLightingApp.Components.CustomComponents
+@inject IJSRuntime JSRuntime
+
+<div class="editable-text-container @CssClass">
+    @if (IsEditing && !IsDisabled)
+    {
+        <input type="text"
+               id="@ElementId"
+               class="editable-text-input editing @InputCssClass"
+               @bind="CurrentValue"
+               @bind:event="oninput"
+               @onblur="OnInputBlur"
+               placeholder="@PlaceholderText"
+               autofocus>
+    }
+    else
+    {
+        <input type="text"
+               class="editable-text-input @InputCssClass"
+               value="@CurrentValue"
+               placeholder="@PlaceholderText"
+               readonly
+               @onclick="StartEditing"
+               disabled="@IsDisabled">
+    }
+
+    @if (IsEditing && !IsDisabled)
+    {
+        <div class="edit-buttons">
+            <button class="edit-btn save-btn"
+                    @onmousedown="@(async () => await SaveChanges())"
+                    @onmousedown:preventDefault="true"
+                    title="Kaydet">
+                <i class="fas fa-check"></i>
+            </button>
+            <button class="edit-btn cancel-btn"
+                    @onmousedown="@(async () => await CancelChanges())"
+                    @onmousedown:preventDefault="true"
+                    title="İptal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public string PlaceholderText { get; set; } = "";
+    [Parameter] public bool IsDisabled { get; set; } = false;
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public string InputCssClass { get; set; } = "";
+    [Parameter] public EventCallback<string> OnValueChanged { get; set; }
+    [Parameter] public EventCallback OnEditingStarted { get; set; }
+    [Parameter] public EventCallback OnEditingCancelled { get; set; }
+    [Parameter] public bool AllowEmpty { get; set; } = false;
+
+    private bool IsEditing = false;
+    private string CurrentValue = string.Empty;
+    private string OriginalValue = string.Empty;
+    private string ElementId = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        ElementId = $"editable-text-{Guid.NewGuid():N}";
+        CurrentValue = Value;
+        OriginalValue = Value;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!IsEditing && CurrentValue != Value)
+        {
+            CurrentValue = Value;
+            OriginalValue = Value;
+        }
+    }
+
+    private async Task StartEditing()
+    {
+        if (IsDisabled) return;
+    
+        IsEditing = true;
+        OriginalValue = CurrentValue;
+        
+        await OnEditingStarted.InvokeAsync();
+        StateHasChanged();
+    
+        // macOS için manuel focus
+        await Task.Delay(100);
+        try 
+        {
+            await JSRuntime.InvokeVoidAsync("focusAndSelect", ElementId);
+        }
+        catch 
+        {
+            await JSRuntime.InvokeVoidAsync("focusElement", ElementId);
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        IsEditing = false;
+
+        var newValue = CurrentValue?.Trim() ?? string.Empty;
+        
+        if (!AllowEmpty && string.IsNullOrEmpty(newValue))
+        {
+            CurrentValue = OriginalValue;
+            return;
+        }
+
+        if (newValue != OriginalValue)
+        {
+            await OnValueChanged.InvokeAsync(newValue);
+        }
+    }
+
+    private async Task CancelChanges()
+    {
+        CurrentValue = OriginalValue;
+        IsEditing = false;
+        await OnEditingCancelled.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private async Task OnInputBlur()
+    {
+        if (!IsEditing) return;
+        await SaveChanges();
+    }
+
+    // Public method to programmatically start editing
+    public async Task StartEditingProgrammatically()
+    {
+        await StartEditing();
+    }
+
+    // Public method to get current editing state
+    public bool IsCurrentlyEditing => IsEditing;
+}

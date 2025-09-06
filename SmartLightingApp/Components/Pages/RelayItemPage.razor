@@ -1,0 +1,90 @@
+@namespace SmartLightingApp.Components.Pages
+
+<div class="relay-item @(IsDisabled ? "disabled" : "")">
+    <div class="relay-info">
+        <span class="relay-number">@Relay.RelayNumber</span>
+        <EditableText Value="@Relay.Name"
+                      InputCssClass="relay-name"
+                      CssClass="relay-name-container"
+                      OnValueChanged="@OnRelayNameChanged"
+                      IsDisabled="@IsDisabled"
+                      PlaceholderText="Röle Adı"/>
+    </div>
+    <div class="relay-controls">
+        @*<button class="timer-indicator @(Relay.HasTimer ? "active" : "")"
+                @onclick="OnTimerToggle"
+                disabled="@IsDisabled">
+            <i class="fas fa-clock"></i>
+        </button>*@
+        <button class="toggle-switch @(Relay.IsOn ? "active" : "") @(IsDisabled ? "disabled" : "")"
+                @onclick="OnRelayToggle"
+                disabled="@IsDisabled">
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public RelayBoard Board { get; set; } = new();
+    [Parameter] public TasmotaClient client { get; set; } = new();
+    [Parameter] public RelayItem Relay { get; set; } = new();
+    [Parameter] public bool IsDisabled { get; set; } = false;
+    [Parameter] public EventCallback<RelayItem> OnRelayStateChanged { get; set; }
+    [Parameter] public EventCallback<RelayItem> OnTimerStateChanged { get; set; }
+    [Parameter] public EventCallback<RelayItem> OnNameUpdated { get; set; }
+    private RelayBoard _currentBoard = new();
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_currentBoard!= Board)
+        {
+            _currentBoard = Board;
+            await LoadRelayState();
+            
+        }
+        
+       
+    }
+
+    protected override Task OnInitializedAsync()
+    {
+        return base.OnInitializedAsync();
+    }
+
+    private Task LoadRelayState()
+    {
+        Task.Run(async () =>
+        {
+            var state = await client.GetRelayStateAsync(Relay.RelayNumber);
+            Relay.IsOn = state == true ? true : false;
+            await InvokeAsync(StateHasChanged);
+            
+        });
+        return Task.CompletedTask;
+    }
+
+    private async Task OnRelayToggle()
+    {
+        if (IsDisabled) return;
+
+        Relay.IsOn = !Relay.IsOn;
+        Relay.LastToggled = DateTime.Now;
+        var state = await client.SetRelayAsync(Relay.RelayNumber, Relay.IsOn);
+        Relay.IsOn = state == true ? true : false;
+        await OnRelayStateChanged.InvokeAsync(Relay);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTimerToggle()
+    {
+        if (IsDisabled) return;
+
+        Relay.HasTimer = !Relay.HasTimer;
+        await OnTimerStateChanged.InvokeAsync(Relay);
+    }
+
+    private async Task OnRelayNameChanged(string newName)
+    {
+        Relay.Name = newName;
+        await OnNameUpdated.InvokeAsync(Relay);
+    }
+
+}

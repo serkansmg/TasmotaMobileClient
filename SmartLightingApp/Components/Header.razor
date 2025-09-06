@@ -1,0 +1,21 @@
+@namespace SmartLightingApp.Components
+
+<!-- Header -->
+<div class="header">
+    <div class="header-left">
+        <div class="header-icon">
+            <i class="fas fa-microchip"></i>
+        </div>
+        <div class="header-title">
+            <h1>Smart Relay Control</h1>
+            <p class="header-subtitle">Akıllı Aydınlatma kontrol sistemi</p>
+        </div>
+    </div>
+    <button class="profile-btn" @onclick="OnSettingsClick">
+        <i class="fas fa-cog"></i>
+    </button>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnSettingsClick { get; set; }
+}

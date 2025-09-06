@@ -1,0 +1,255 @@
+﻿@page "/"
+@page "/xx"
+
+@inject RelayDataService RelayDataService
+@inject NavigationManager Navigation
+@inject TasmotaClient _tasmotaClient
+
+<Header OnSettingsClick="HandleSettingsClick"/>
+
+<StatsCard BoardCount="@boards.Count"/>
+
+<ActionButtons OnDiscoverDevices="HandleDiscoverDevices"
+               OnAddNewBoard="HandleAddNewBoard"
+               OnRefreshBoards="HandleRefreshBoards"
+               IsRefreshing="@isRefreshing"/>
+
+<!-- Boards List -->
+<div class="boards-section">
+    @foreach (var board in boards)
+    {
+        <BoardCard Board="board"
+                   OnBoardDeleted="HandleBoardDeleted"
+                   OnBoardUpdated="HandleBoardUpdated"/>
+    }
+
+    @if (!boards.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-microchip"></i>
+            </div>
+            <p>Henüz relay board eklenmemiş.</p>
+            <div class="empty-state-actions">
+                <button class="btn-primary-custom" @onclick="HandleDiscoverDevices">
+                    <i class="fas fa-search"></i>
+                    Cihaz Keşfi Yap
+                </button>
+                <button class="btn-secondary-custom" @onclick="HandleAddNewBoard">
+                    <i class="fas fa-plus"></i>
+                    Manuel Ekle
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Bottom Safe Area -->
+<div class="bottom-safe-area"></div>
+
+@code {
+    private List<RelayBoard> boards = new();
+    private bool isRefreshing = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load dummy data
+        //boards = DummyDataService.GetDummyBoards();
+        boards = await RelayDataService.GetAllBoardsAsync();
+
+        // Set board IDs for relays
+        foreach (var board in boards)
+        {
+            foreach (var relay in board.Relays)
+            {
+                relay.BoardId = board.Id;
+            }
+        }
+    }
+
+    private async Task HandleSettingsClick()
+    {
+        if (isRefreshing) return;
+        Navigation.NavigateTo("/settings");
+    }
+
+    private void HandleDiscoverDevices()
+    {
+        if (isRefreshing) return;
+        Navigation.NavigateTo("/discovery");
+    }
+
+    private async Task HandleAddNewBoard()
+    {
+        if (isRefreshing) return;
+
+        // In real app, this would open a form to add new board
+        var boardName = await JSRuntime.InvokeAsync<string>("prompt", "Yeni board adı:");
+
+        if (string.IsNullOrWhiteSpace(boardName)) return;
+
+        var boardIp = await JSRuntime.InvokeAsync<string>("prompt", "Board IP adresi:");
+
+        if (string.IsNullOrWhiteSpace(boardIp)) return;
+
+        var relayCountStr = await JSRuntime.InvokeAsync<string>("prompt", "Relay sayısı (2, 4, 6, 8):");
+
+        if (!int.TryParse(relayCountStr, out var relayCount) ||
+            !new[] { 2, 4, 6, 8 }.Contains(relayCount))
+        {
+            await JSRuntime.InvokeVoidAsync("showErrorAlert",
+                "Hata",
+                "Geçersiz relay sayısı! Lütfen 2, 4, 6 veya 8 girin.");
+            return;
+        }
+
+        try
+        {
+            // Create new board
+            var newBoard = new RelayBoard
+            {
+                Name = boardName,
+                IpAddress = boardIp,
+                IsOnline = true,
+                LastSeen = DateTime.Now
+            };
+
+            // Add relays
+            for (int i = 1; i <= relayCount; i++)
+            {
+                newBoard.Relays.Add(new RelayItem(i)
+                {
+                    Name = $"Röle {i}"
+                });
+            }
+
+            var addedBoard = await RelayDataService.AddBoardAsync(newBoard);
+            boards.Add(addedBoard);
+            StateHasChanged();
+
+            await JSRuntime.InvokeVoidAsync("showSuccessAlert",
+                "Board Eklendi",
+                $"'{boardName}' başarıyla eklendi!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("showErrorAlert",
+                "Ekleme Hatası",
+                $"Board eklenirken hata oluştu: {ex.Message}");
+        }
+    }
+
+    private async Task HandleRefreshBoards()
+    {
+        if (isRefreshing) return;
+
+        isRefreshing = true;
+        StateHasChanged();
+
+        try
+        {
+            var currentBoards = await RelayDataService.GetAllBoardsAsync();
+
+            // 2 saniye timeout - çok daha hızlı!
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+            var refreshTasks = currentBoards.Select(async board =>
+            {
+                try
+                {
+                    using var client = new TasmotaClient();
+                    client.SetIp(board.IpAddress);
+
+                    // Sadece status kontrol et - relay state'leri alma
+                    var status = await client.GetStatusAsync(cts.Token);
+
+                    bool wasOnline = board.IsOnline;
+                    board.IsOnline = status != null;
+                    board.LastSeen = DateTime.Now;
+
+                    if (status?.StatusNET != null)
+                    {
+                        if (!string.IsNullOrEmpty(status.StatusNET.IPAddress) &&
+                            status.StatusNET.IPAddress != board.IpAddress)
+                            board.IpAddress = status.StatusNET.IPAddress;
+
+                        if (!string.IsNullOrEmpty(status.StatusNET.Hostname))
+                            board.Hostname = status.StatusNET.Hostname;
+
+                        if (!string.IsNullOrEmpty(status.StatusNET.Mac))
+                            board.MacAddress = status.StatusNET.Mac;
+                    }
+
+                    await RelayDataService.UpdateBoardAsync(board);
+
+                    return board;
+                }
+                catch (OperationCanceledException)
+                {
+                    // 2 saniye timeout - hemen offline
+                    if (board.IsOnline)
+                    {
+                        board.IsOnline = false;
+                        await RelayDataService.UpdateBoardAsync(board);
+                    }
+
+                    return board;
+                }
+                catch
+                {
+                    // Herhangi bir hata - offline
+                    if (board.IsOnline)
+                    {
+                        board.IsOnline = false;
+                        await RelayDataService.UpdateBoardAsync(board);
+                    }
+
+                    return board;
+                }
+            });
+
+            await Task.WhenAll(refreshTasks);
+
+            boards = await RelayDataService.GetAllBoardsAsync();
+
+            foreach (var board in boards)
+            {
+                foreach (var relay in board.Relays)
+                {
+                    relay.BoardId = board.Id;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("showErrorAlert",
+                "Yenileme Hatası",
+                $"Board durumları güncellenirken hata oluştu: {ex.Message}");
+        }
+        finally
+        {
+            isRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleBoardDeleted(RelayBoard board)
+    {
+        await RelayDataService.DeleteBoardAsync(board.Id);
+        boards.Remove(board);
+        StateHasChanged();
+
+        await JSRuntime.InvokeVoidAsync("console.log", $"Board {board.Id} deleted");
+    }
+
+    private async Task HandleBoardUpdated(RelayBoard board)
+    {
+        await RelayDataService.UpdateBoardAsync(board);
+        StateHasChanged();
+
+        await JSRuntime.InvokeVoidAsync("console.log", $"Board {board.Id} updated");
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+}

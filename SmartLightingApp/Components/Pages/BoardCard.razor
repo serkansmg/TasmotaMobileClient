@@ -1,0 +1,263 @@
+@namespace SmartLightingApp.Components.Pages
+@inject TasmotaClient _client
+<div class="board-card" data-board-id="@Board.Id">
+    <div class="board-header" @onclick="ToggleExpansion">
+        <div class="board-info">
+            <div class="board-icon @(!Board.IsOnline ? "offline" : "")" style="display: none;">
+                <i class="fas fa-microchip"></i>
+            </div>
+            <div class="board-details">
+                <EditableText Value="@Board.Name"
+                              InputCssClass="board-name-input"
+                              CssClass="board-name-wrapper"
+                              OnValueChanged="@OnBoardNameChanged"
+                              OnEditingStarted="@OnEditingStarted"
+                              IsDisabled="@(!Board.IsOnline)"
+                              PlaceholderText="Board Adı" />
+    
+                <!-- Updated board-status layout for single line -->
+                <div class="board-status-line">
+                    <span class="board-ip">@Board.IpAddress</span>
+                    <span class="status-badge @(Board.IsOnline ? "online" : "offline")">
+                        <span class="status-dot"></span>
+                        @(Board.IsOnline ? "ONLINE" : "OFFLINE")
+                    </span>
+                    <span class="relay-summary">@Board.RelaysSummary</span>
+                </div>
+            </div>
+        </div>
+        <div class="board-actions">
+            <!-- Toggle butonları her zaman görünür -->
+            <button class="toggle-all-btn on-btn" 
+                    @onclick="() => ToggleAllRelays(true)" 
+                    @onclick:stopPropagation="true"
+                    disabled="@(isTogglingAll || !Board.IsOnline)"
+                    title="Hepsini Aç">
+                <i class="fas fa-lightbulb"></i>
+            </button>
+    
+            <button class="toggle-all-btn off-btn" 
+                    @onclick="() => ToggleAllRelays(false)" 
+                    @onclick:stopPropagation="true"
+                    disabled="@(isTogglingAll || !Board.IsOnline)"
+                    title="Hepsini Kapat">
+                <i class="fas fa-power-off"></i>
+            </button>
+    
+            <button class="expand-btn @(IsExpanded ? "expanded" : "") @(!Board.IsOnline ? "disabled" : "")"
+                    @onclick="ToggleExpansion" 
+                    @onclick:stopPropagation="true"
+                    disabled="@(!Board.IsOnline)">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <button class="settings-btn" 
+                    @onclick="() => GoToSettings()" 
+                    @onclick:stopPropagation="true"
+                    title="Board Ayarları">
+                <i class="fas fa-cog"></i>
+            </button>
+            <button class="delete-btn" 
+                    @onclick="OnDeleteBoard" 
+                    @onclick:stopPropagation="true">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+    
+    @if (IsExpanded && Board.IsOnline)
+    {
+        <!-- Relays List -->
+        <div class="relays-container">
+            <div class="relays-list">
+                @foreach (var relay in Board.Relays)
+                {
+                    <RelayItemPage Relay="relay"  Board="Board"
+                                   client="_client"
+                              IsDisabled="@(!Board.IsOnline)"
+                              OnRelayStateChanged="HandleRelayStateChanged"
+                              OnTimerStateChanged="HandleTimerStateChanged"
+                              OnNameUpdated="HandleRelayNameUpdated" />
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public RelayBoard Board { get; set; } = new();
+    [Parameter] public EventCallback<RelayBoard> OnBoardDeleted { get; set; }
+    [Parameter] public EventCallback<RelayBoard> OnBoardUpdated { get; set; }
+    private bool isTogglingAll = false;
+    private bool AllRelaysOn => Board.Relays.All(r => r.IsOn);
+    private bool IsExpanded = false;
+    private bool IsEditingBoardName = false;
+    protected override async Task OnInitializedAsync()
+    {
+        bool needToUpdate = false;
+        _client.SetIp(Board.IpAddress);
+        
+        var status = await _client.GetStatusAsync();
+        if (status!=null)
+        {
+            if (Board.IsOnline!=true)
+            {
+                Board.IsOnline= true;
+                needToUpdate = true;
+            }
+            if (status.StatusNET!=null && Board.IpAddress!= status.StatusNET.IPAddress)
+            {
+                Board.IpAddress = status.StatusNET.IPAddress;
+                needToUpdate = true;
+            }
+            
+        }
+        else
+        {
+            if (Board.IsOnline==true)
+            {
+                Board.IsOnline= false;
+                needToUpdate = true;
+            }
+        }
+
+        if (needToUpdate)
+        {
+            await OnBoardUpdated.InvokeAsync(Board);
+            await InvokeAsync(StateHasChanged);
+
+        }
+    }
+   
+    
+    private async Task ToggleAllRelays(bool targetState)
+    {
+        if (isTogglingAll || !Board.IsOnline) return;
+    
+        try
+        {
+            isTogglingAll = true;
+            StateHasChanged();
+        
+            _client.SetIp(Board.IpAddress);
+        
+            // Paralel olarak tüm relay'leri değiştir
+            var tasks = Board.Relays.Select(async relay =>
+            {
+                try
+                {
+                    var result = await _client.SetRelayAsync(relay.RelayNumber, targetState);
+                    if (result.HasValue)
+                    {
+                        relay.IsOn = result.Value;
+                        relay.LastToggled = DateTime.Now;
+                    }
+                }
+                catch
+                {
+                    // Tek relay hatası tüm işlemi durdurmasın
+                }
+            });
+        
+            await Task.WhenAll(tasks);
+        
+            await OnBoardUpdated.InvokeAsync(Board);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ToggleAllRelays error: {ex.Message}");
+        }
+        finally
+        {
+            isTogglingAll = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void ToggleExpansion()
+    {
+        if (!Board.IsOnline) return;
+        
+        IsExpanded = !IsExpanded;
+        
+        if (IsExpanded)
+        {
+            // Simulate loading delay (in real app, this would fetch latest states from TasmotaClient)
+            InvokeAsync(async () =>
+            {
+                await Task.Delay(100);
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void OnEditingStarted()
+    {
+        IsEditingBoardName = true;
+    }
+
+    private async Task OnBoardNameChanged(string newName)
+    {
+        IsEditingBoardName = false;
+        Board.Name = newName;
+        
+        // In real app, this would save to database/config
+        Console.WriteLine($"Board {Board.Id} renamed to: '{newName}'");
+        
+        await OnBoardUpdated.InvokeAsync(Board);
+    }
+
+    private async Task OnDeleteBoard()
+    {
+        // In a real app, you might show a confirmation dialog here
+        var confirmed = await ShowDeleteConfirmation();
+        if (confirmed)
+        {
+            await OnBoardDeleted.InvokeAsync(Board);
+        }
+    }
+
+    private async Task<bool> ShowDeleteConfirmation()
+    {
+        var result = await JSRuntime.InvokeAsync<bool>("showDeleteConfirmation", 
+            "Board Sil", 
+            $"'{Board.Name}' board'unu silmek istediğinize emin misiniz?");
+        return result;
+    }
+
+    private async Task HandleRelayStateChanged(RelayItem relay)
+    {
+        // Update the board's relay summary
+        StateHasChanged();
+        
+        // Notify parent component
+        await OnBoardUpdated.InvokeAsync(Board);
+        
+        // In real app, this would call TasmotaClient API
+        Console.WriteLine($"Relay {relay.RelayNumber} on Board {Board.Id} {(relay.IsOn ? "turned ON" : "turned OFF")}");
+    }
+
+    private async Task HandleTimerStateChanged(RelayItem relay)
+    {
+        // In real app, this would open timer configuration page
+        await JSRuntime.InvokeVoidAsync("showTimerConfigAlert", Board.Name, relay.Name);
+        
+        await OnBoardUpdated.InvokeAsync(Board);
+    }
+
+    private async Task HandleRelayNameUpdated(RelayItem relay)
+    {
+        // In real app, this would save to database/config
+        Console.WriteLine($"Relay {relay.RelayNumber} on Board {Board.Id} renamed to: '{relay.Name}'");
+        
+        await OnBoardUpdated.InvokeAsync(Board);
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    private void GoToSettings()
+    {
+        Navigation.NavigateTo($"/settings/{Board.IpAddress}");
+    }
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+}

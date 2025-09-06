@@ -1,0 +1,63 @@
+@using System.Timers
+<h3>Test</h3>
+<div>
+    @if (currentMessage != null)
+    {
+        <div class="message-box">
+            <p>@currentMessage.text</p>
+            <span class="timestamp">@currentMessage.time.ToString("HH:mm:ss")</span>
+        </div>
+    }
+    else
+    {
+        <p>No messages.</p>
+    }
+</div>
+@code {
+
+    msg? currentMessage ;
+    public class msg
+    {
+        public string text { get; set; }
+        public DateTime time { get; set; }
+    }
+
+
+    public Queue<msg> messages { get; set; } = new();
+    private System.Timers.Timer? timer;
+    
+    [JSInvokable]
+    public async Task onMessageReceived(string text)
+    {
+        messages.Enqueue(new msg { text = text, time = DateTime.Now });
+        
+    }
+    
+    protected override void OnInitialized()
+    {
+        messages.Enqueue(new msg { text = "Test mesajı 1", time = DateTime.Now });
+        messages.Enqueue(new msg { text = "Test mesajı 2", time = DateTime.Now.AddSeconds(1) });
+        messages.Enqueue(new msg { text = "Test mesajı 3", time = DateTime.Now.AddSeconds(2) });
+        messages.Enqueue(new msg { text = "Test mesajı 4", time = DateTime.Now.AddSeconds(3) });
+        
+        timer = new System.Timers.Timer(100);
+        timer.Elapsed += Timer_Elapsed;
+        timer.AutoReset = true;
+        timer.Enabled = true;
+    }
+
+    private void Timer_Elapsed(object? sender, ElapsedEventArgs e)
+    {
+        if (messages.Count > 0)
+        {
+            currentMessage = messages.Dequeue();
+            InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            timer?.Stop();
+        }
+       
+    }
+
+}

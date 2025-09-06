@@ -1,0 +1,24 @@
+@namespace SmartLightingApp.Components.Pages
+
+<!-- Action Buttons -->
+<div class="action-buttons">
+    <button class="btn-primary-custom" @onclick="OnDiscoverDevices" disabled="@IsRefreshing">
+        <i class="fas fa-search"></i>
+        Cihaz Keşfi
+    </button>
+    <button class="btn-secondary-custom" @onclick="OnAddNewBoard" disabled="@IsRefreshing">
+        <i class="fas fa-plus"></i>
+        Manuel Ekle
+    </button>
+    <button class="btn-secondary-custom @(IsRefreshing ? "btn-loading" : "")" @onclick="OnRefreshBoards" disabled="@IsRefreshing">
+        <i class="fas @(IsRefreshing ? "fa-spinner fa-spin" : "fa-sync")"></i>
+        @(IsRefreshing ? "Yeniliyor..." : "Yenile")
+    </button>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnDiscoverDevices { get; set; }
+    [Parameter] public EventCallback OnAddNewBoard { get; set; }
+    [Parameter] public EventCallback OnRefreshBoards { get; set; }
+    [Parameter] public bool IsRefreshing { get; set; } = false;
+}
