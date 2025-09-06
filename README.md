@@ -236,7 +236,7 @@ The application currently uses Turkish for the user interface, making it ideal f
 - HTTP API enabled (default)
 - Network connectivity (WiFi)
 - mDNS support for auto-discovery
-
+ 
 ## Configuration
 
 ### Hardware Setup
@@ -248,14 +248,35 @@ The application currently uses Turkish for the user interface, making it ideal f
 
 #### 2. Tasmota Firmware Installation
 1. Flash Tasmota firmware to your ESP32 device
-2. Use the provided pin configuration from [emariete.com guide](https://emariete.com/en/esp32-relay-board-x8)
-3. Configure GPIO settings for relay outputs
+2. After flashing, the device will appear as WiFi SSID `tasmota-xxxx`
+3. Connect to this hotspot - the device's default IP is `192.168.4.1`
+4. Access the web interface and go to **Configuration → Configure Module**
+5. Set GPIO pins according to your relay board:
+    - Configure GPIO pins as Relay 1, Relay 2, Relay 3, Relay 4, etc.
+    - Use the pin mapping from [emariete.com guide](https://emariete.com/en/esp32-relay-board-x8)
+6. Click **Save** - the device will restart with new configuration
+
+<img src="screenshots/gpio-config.png" alt="GPIO Configuration" width="300">
+
+*Example GPIO configuration for 8-channel relay board*
 
 #### 3. Initial WiFi Setup
-1. Power on the device - it will create a WiFi hotspot (tasmota-xxxx)
-2. Connect to the hotspot and configure your WiFi credentials
-3. Enable mDNS for automatic discovery
-4. The device will restart and connect to your network
+
+**Option 1: Manual Web Interface**
+1. Power on the device
+2. Connect to the `tasmota-xxxx` WiFi hotspot
+3. Navigate to `192.168.4.1` in your browser
+4. Go to **Configuration → Configure WiFi**
+5. Select your network and enter credentials
+6. Save and the device will restart and connect to your network
+
+**Option 2: Using Smart Lighting App**
+1. Power on the device
+2. Connect to the `tasmota-xxxx` WiFi hotspot
+3. Open the Smart Lighting App
+4. Tap the gear icon (⚙️) in the top right corner
+5. Use the app's WiFi scan and configuration features
+6. Enter your network credentials through the app interface
 
 #### 4. Enclosure (Optional)
 - Print the 3D enclosure from [MakerWorld STL files](https://makerworld.com/tr/models/374060-esp32-relay-board-cover-8-channel?from=search#profileId-274009)
