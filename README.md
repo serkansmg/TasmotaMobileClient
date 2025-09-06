@@ -111,7 +111,7 @@ This application was specifically designed to leverage Tasmota firmware as a sta
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/serkansmg/TasmotaMobileClient/
+git clone https://github.com/serkansmg/TasmotaMobileClient.git
 cd TasmotaMobileClient
 ```
 
