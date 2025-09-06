@@ -111,8 +111,8 @@ This application was specifically designed to leverage Tasmota firmware as a sta
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/smart-lighting-app.git
-cd smart-lighting-app
+git clone https://github.com/serkansmg/TasmotaMobileClient/
+cd TasmotaMobileClient
 ```
 
 2. Install dependencies:
