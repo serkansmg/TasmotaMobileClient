@@ -46,24 +46,31 @@ The application is designed to work with ESP32-based relay boards, particularly 
 ## Screenshots
 
 ### Main Dashboard
-![Main Dashboard](screenshots/dashboard.jpg)
+<img src="screenshots/dashboard.jpg" alt="Main Dashboard" width="300">
+
 *The main dashboard showing connected devices and their status*
 
 ### Device Discovery
-![Device Discovery](screenshots/discovery.jpg)
+<img src="screenshots/discovery.jpg" alt="Device Discovery" width="300">
+
 *Automatic discovery of Tasmota devices on the network*
 
 ### Device Configuration
-![Device Settings](screenshots/settings1.jpg)
-![Device Settings](screenshots/settings2.jpg)
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <img src="screenshots/settings1.jpg" alt="Device Settings 1" width="300">
+  <img src="screenshots/settings2.jpg" alt="Device Settings 2" width="300">
+</div>
+
 *WiFi configuration and device settings interface*
 
 ### Relay Control
-![Relay Control](screenshots/relay-control1.jpg)
-![Relay Control](screenshots/relay-control2.jpg)
-![Relay Control](screenshots/relay-control3.jpg)
-*Individual relay control with real-time status updates*
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <img src="screenshots/relay-control1.jpg" alt="Relay Control 1" width="250">
+  <img src="screenshots/relay-control2.jpg" alt="Relay Control 2" width="250">
+  <img src="screenshots/relay-control3.jpg" alt="Relay Control 3" width="250">
+</div>
 
+*Individual relay control with real-time status updates*
 ## Why Tasmota?
 
 This application was specifically designed to leverage Tasmota firmware as a stable, robust solution for ESP32-based relay control systems. Here's why Tasmota was chosen:
