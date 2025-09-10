@@ -6,6 +6,11 @@ This application was developed with the goal of creating a stable, robust ESP32 
 
 <img src="screenshots/dashboard.jpg" alt="Main Dashboard" width="300">
 
+With Language Localization Support
+
+<img src="screenshots/dashboardlang1.jpg" alt="Main Dashboard" width="300">
+<img src="screenshots/dashboardlang2.jpg" alt="Main Dashboard" width="300">
+
 ## Language Support
 
 **Multi-Language Interface**: The application supports both Turkish and English interfaces with real-time language switching.
@@ -72,6 +77,7 @@ The application is designed to work with ESP32-based relay boards, particularly 
 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
   <img src="screenshots/settings1.jpg" alt="Device Settings 1" width="300">
   <img src="screenshots/settings2.jpg" alt="Device Settings 2" width="300">
+  <img src="screenshots/manualAdd.jpg" alt="Device Settings 2" width="300">
 </div>
 
 *WiFi configuration and device settings interface*
