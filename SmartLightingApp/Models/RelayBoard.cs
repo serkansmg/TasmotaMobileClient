@@ -25,7 +25,7 @@ public class RelayBoard
     // Computed properties
     public int TotalRelays => Relays.Count;
     public int ActiveRelays => Relays.Count(r => r.IsOn);
-    public string RelaysSummary => IsOnline ? $"{ActiveRelays}/{TotalRelays} açık" : "Bilinmiyor";      
+    public string RelaysSummary => IsOnline ? $"{ActiveRelays}/{TotalRelays}" : "";      
     public RelayBoard()
     {
         LastSeen = DateTime.Now;

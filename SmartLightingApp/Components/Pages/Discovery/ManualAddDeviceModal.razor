@@ -1,0 +1,393 @@
+@namespace SmartLightingApp.Components
+@using TasmotaSharp
+@using TasmotaSharp.Models
+@inject TasmotaClient tasmotaClient
+@inject RelayDataService relayDataService
+@inject IJSRuntime JSRuntime
+@inject ILocalizationService Localization
+@implements IDisposable
+
+@if (IsVisible)
+{
+    <div class="modal-overlay" @onclick="OnBackdropClick">
+        <div class="manual-add-modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="modal-icon">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <h2 class="modal-title">@Localization.Current.General.Discovery.ManualAdd</h2>
+                <button class="modal-close-btn" @onclick="CloseModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-content">
+                @if (currentStep == AddStep.DeviceInfo)
+                {
+                    <div class="step-content">
+                        <div class="step-header">
+                            <div class="step-indicator">
+                                <span class="step-number">1</span>
+                            </div>
+                            <div class="step-info">
+                                <h3>@Localization.Current.General.ManualAdd.DeviceInformation</h3>
+                                <p>@Localization.Current.General.ManualAdd.EnterDeviceDetails</p>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-group">
+                                <label class="form-label">@Localization.Current.General.Discovery.DeviceName</label>
+                                <input type="text" 
+                                       class="form-input @(string.IsNullOrWhiteSpace(deviceName) && showValidation ? "error" : "")" 
+                                       @bind="deviceName" 
+                                       placeholder="@Localization.Current.General.ManualAdd.DeviceNamePlaceholder" 
+                                       @onkeypress="OnInputKeyPress" />
+                                @if (string.IsNullOrWhiteSpace(deviceName) && showValidation)
+                                {
+                                    <span class="error-text">@Localization.Current.General.ManualAdd.DeviceNameRequired</span>
+                                }
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">@Localization.Current.General.Discovery.DeviceIp</label>
+                                <input type="text" 
+                                       class="form-input @(!IsValidIpAddress(deviceIp) && showValidation ? "error" : "")" 
+                                       @bind="deviceIp" 
+                                       placeholder="@Localization.Current.General.ManualAdd.DeviceIpPlaceholder" 
+                                       @onkeypress="OnInputKeyPress" />
+                                @if (!IsValidIpAddress(deviceIp) && showValidation)
+                                {
+                                    <span class="error-text">@Localization.Current.General.ManualAdd.InvalidIpAddress</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (currentStep == AddStep.Testing)
+                {
+                    <div class="step-content">
+                        <div class="step-header">
+                            <div class="step-indicator">
+                                <span class="step-number">2</span>
+                            </div>
+                            <div class="step-info">
+                                <h3>@Localization.Current.General.ManualAdd.TestingConnection</h3>
+                                <p>@Localization.Current.General.ManualAdd.ConnectingToDevice</p>
+                            </div>
+                        </div>
+
+                        <div class="testing-section">
+                            <div class="testing-animation">
+                                <div class="spinner"></div>
+                                <div class="testing-steps">
+                                    <div class="test-step @(testSteps.Contains("ping") ? "completed" : "")">
+                                        <i class="fas @(testSteps.Contains("ping") ? "fa-check" : "fa-circle-notch fa-spin")"></i>
+                                        <span>@Localization.Current.General.ManualAdd.CheckingConnection</span>
+                                    </div>
+                                    <div class="test-step @(testSteps.Contains("status") ? "completed" : "")">
+                                        <i class="fas @(testSteps.Contains("status") ? "fa-check" : "fa-circle-notch fa-spin")"></i>
+                                        <span>@Localization.Current.General.ManualAdd.GettingDeviceInfo</span>
+                                    </div>
+                                    <div class="test-step @(testSteps.Contains("relays") ? "completed" : "")">
+                                        <i class="fas @(testSteps.Contains("relays") ? "fa-check" : "fa-circle-notch fa-spin")"></i>
+                                        <span>@Localization.Current.General.ManualAdd.DetectingRelays</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (currentStep == AddStep.Success)
+                {
+                    <div class="step-content">
+                        <div class="step-header">
+                            <div class="step-indicator success">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div class="step-info">
+                                <h3>@Localization.Current.General.ManualAdd.DeviceAdded</h3>
+                                <p>@Localization.Current.General.ManualAdd.DeviceAddedSuccessfully</p>
+                            </div>
+                        </div>
+
+                        @if (deviceStatus != null)
+                        {
+                            <div class="device-summary">
+                                <div class="summary-card">
+                                    <div class="summary-icon">
+                                        <i class="fas fa-microchip"></i>
+                                    </div>
+                                    <div class="summary-info">
+                                        <h4>@deviceName</h4>
+                                        <p>@deviceIp</p>
+                                        <div class="summary-details">
+                                            <span class="detail-badge">
+                                                <i class="fas fa-wifi"></i>
+                                                @deviceStatus.StatusNET?.Hostname
+                                            </span>
+                                            <span class="detail-badge">
+                                                <i class="fas fa-toggle-on"></i>
+                                                @relayCount @Localization.Current.General.ManualAdd.Relays
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (currentStep == AddStep.Error)
+                {
+                    <div class="step-content">
+                        <div class="step-header">
+                            <div class="step-indicator error">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="step-info">
+                                <h3>@Localization.Current.General.ManualAdd.ConnectionFailed</h3>
+                                <p>@errorMessage</p>
+                            </div>
+                        </div>
+
+                        <div class="error-suggestions">
+                            <h4>@Localization.Current.General.ManualAdd.TroubleshootingTips</h4>
+                            <ul class="suggestions-list">
+                                <li>@Localization.Current.General.ManualAdd.CheckIpAddress</li>
+                                <li>@Localization.Current.General.ManualAdd.CheckDevicePower</li>
+                                <li>@Localization.Current.General.ManualAdd.CheckNetworkConnection</li>
+                                <li>@Localization.Current.General.ManualAdd.CheckFirewall</li>
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
+                @if (currentStep == AddStep.DeviceInfo)
+                {
+                    <button class="btn-secondary-modal" @onclick="CloseModal">
+                        @Localization.Current.General.Settings.Cancel
+                    </button>
+                    <button class="btn-primary-modal @(isProcessing ? "loading" : "")" 
+                            @onclick="TestConnection"
+                            disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>@Localization.Current.General.ManualAdd.Testing</span>
+                        }
+                        else
+                        {
+                            <i class="fas fa-search"></i>
+                            <span>@Localization.Current.General.ManualAdd.TestConnection</span>
+                        }
+                    </button>
+                }
+                else if (currentStep == AddStep.Testing)
+                {
+                    <button class="btn-secondary-modal" @onclick="CancelTest">
+                        @Localization.Current.General.Settings.Cancel
+                    </button>
+                }
+                else if (currentStep == AddStep.Success)
+                {
+                    <button class="btn-primary-modal" @onclick="CloseModal">
+                        <i class="fas fa-check"></i>
+                        <span>@Localization.Current.General.ManualAdd.Done</span>
+                    </button>
+                }
+                else if (currentStep == AddStep.Error)
+                {
+                    <button class="btn-secondary-modal" @onclick="RetryFromStart">
+                        <i class="fas fa-redo"></i>
+                        <span>@Localization.Current.General.ManualAdd.TryAgain</span>
+                    </button>
+                    <button class="btn-primary-modal" @onclick="CloseModal">
+                        @Localization.Current.General.Settings.Cancel
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<RelayBoard> OnDeviceAdded { get; set; }
+
+    private enum AddStep { DeviceInfo, Testing, Success, Error }
+    private AddStep currentStep = AddStep.DeviceInfo;
+
+    private string deviceName = "";
+    private string deviceIp = "";
+    private bool showValidation = false;
+    private bool isProcessing = false;
+    private string errorMessage = "";
+    
+    private TasmotaStatus? deviceStatus;
+    private int relayCount = 0;
+    private List<string> testSteps = new();
+
+    protected override void OnInitialized()
+    {
+        Localization.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnInputKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && currentStep == AddStep.DeviceInfo)
+        {
+            _ = TestConnection();
+        }
+    }
+
+    private bool IsValidIpAddress(string ip)
+    {
+        if (string.IsNullOrWhiteSpace(ip)) return false;
+        return System.Net.IPAddress.TryParse(ip, out _);
+    }
+
+    private async Task TestConnection()
+    {
+        showValidation = true;
+        
+        if (string.IsNullOrWhiteSpace(deviceName) || !IsValidIpAddress(deviceIp))
+        {
+            StateHasChanged();
+            return;
+        }
+
+        currentStep = AddStep.Testing;
+        isProcessing = true;
+        testSteps.Clear();
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(500); // UI feedback
+            testSteps.Add("ping");
+            StateHasChanged();
+
+            tasmotaClient.SetIp(deviceIp);
+            
+            await Task.Delay(500);
+            deviceStatus = await tasmotaClient.GetStatusAsync();
+            
+            if (deviceStatus == null)
+            {
+                throw new Exception(Localization.Current.General.Settings.CannotConnectToDevice);
+            }
+
+            testSteps.Add("status");
+            StateHasChanged();
+
+            await Task.Delay(500);
+            relayCount = await tasmotaClient.GetRelayCountAsync() ?? 4;
+            testSteps.Add("relays");
+            StateHasChanged();
+
+            await Task.Delay(500);
+            await AddDeviceToSystem();
+            
+            currentStep = AddStep.Success;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            currentStep = AddStep.Error;
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddDeviceToSystem()
+    {
+        var newBoard = new RelayBoard
+        {
+            Name = deviceName,
+            IpAddress = deviceStatus?.StatusNET?.IPAddress ?? deviceIp,
+            Hostname = deviceStatus?.StatusNET?.Hostname ?? "",
+            MacAddress = deviceStatus?.StatusNET?.Mac ?? "",
+            IsOnline = true,
+            LastSeen = DateTime.Now
+        };
+
+        for (int i = 1; i <= relayCount; i++)
+        {
+            bool? relayState = null;
+            try
+            {
+                relayState = await tasmotaClient.GetRelayStateAsync(i);
+            }
+            catch { }
+
+            newBoard.Relays.Add(new RelayItem(i)
+            {
+                Name = $"{Localization.Current.General.Discovery.Relay.Replace("{0}", i.ToString())}",
+                IsOn = relayState ?? false
+            });
+        }
+
+        var addedBoard = await relayDataService.AddBoardAsync(newBoard);
+        await OnDeviceAdded.InvokeAsync(addedBoard);
+    }
+
+    private void CancelTest()
+    {
+        isProcessing = false;
+        currentStep = AddStep.DeviceInfo;
+        testSteps.Clear();
+        StateHasChanged();
+    }
+
+    private void RetryFromStart()
+    {
+        currentStep = AddStep.DeviceInfo;
+        showValidation = false;
+        testSteps.Clear();
+        errorMessage = "";
+        StateHasChanged();
+    }
+
+    private void OnBackdropClick()
+    {
+        if (!isProcessing)
+        {
+            CloseModal();
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        if (isProcessing) return;
+
+        // Reset state
+        deviceName = "";
+        deviceIp = "";
+        showValidation = false;
+        currentStep = AddStep.DeviceInfo;
+        testSteps.Clear();
+        errorMessage = "";
+        deviceStatus = null;
+        relayCount = 0;
+
+        await OnClose.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
+    }
+}

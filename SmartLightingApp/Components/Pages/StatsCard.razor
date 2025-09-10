@@ -1,5 +1,6 @@
 @namespace SmartLightingApp.Components.Pages
-
+@inject ILocalizationService Localization
+@implements IDisposable
 <!-- Stats Section -->
 <div class="stats-section-compact">
     <div class="stats-row">
@@ -8,11 +9,30 @@
         </div>
         <div class="stats-info">
             <span class="stats-number">@BoardCount</span>
-            <span class="stats-label">relay board</span>
+            <span class="stats-label">@Localization.Current.General.StatsCard.RelayBoard</span>
         </div>
     </div>
 </div>
 
 @code {
     [Parameter] public int BoardCount { get; set; } = 0;
+    protected override void OnInitialized()
+    {
+        Localization.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void ChangeLanguage(string language)
+    {
+        Localization.SetLanguage(language);
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged); // Update UI
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
+    }
 }

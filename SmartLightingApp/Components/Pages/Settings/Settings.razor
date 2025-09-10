@@ -5,6 +5,8 @@
 @inject TasmotaClient tasmotaClient
 @inject NavigationManager navigation
 @inject IJSRuntime JSRuntime
+@inject ILocalizationService Localization
+@implements IDisposable
 
 <!-- Settings Header -->
 <div class="header">
@@ -16,7 +18,7 @@
             <i class="fas fa-cog"></i>
         </div>
         <div class="header-title">
-            <h1>Cihaz Ayarları</h1>
+            <h1>@Localization.Current.General.Settings.Title</h1>
             <p class="header-subtitle">@CurrentIpAddress</p>
         </div>
     </div>
@@ -27,35 +29,35 @@
     <div class="status-card">
         <div class="card-header">
             <i class="fas fa-info-circle"></i>
-            <h3>Cihaz Durumu</h3>
+            <h3>@Localization.Current.General.Settings.DeviceStatus</h3>
         </div>
         <div class="card-content">
             @if (isLoadingStatus)
             {
                 <div class="loading-indicator">
                     <i class="fas fa-spinner fa-spin"></i>
-                    <span>Cihaz bilgileri kontrol ediliyor...</span>
+                    <span>@Localization.Current.General.Settings.CheckingDeviceInfo</span>
                 </div>
             }
             else if (deviceStatus != null)
             {
                 <div class="status-info">
                     <div class="status-item">
-                        <span class="label">Bağlantı:</span>
-                        <span class="value success">Başarılı</span>
+                        <span class="label">@Localization.Current.General.Settings.Connection</span>
+                        <span class="value success">@Localization.Current.General.Settings.Successful</span>
                     </div>
                     <div class="status-item">
-                        <span class="label">Firmware:</span>
+                        <span class="label">@Localization.Current.General.Settings.Firmware</span>
                         <span class="value">@deviceStatus.StatusFWR?.Version</span>
                     </div>
                     <div class="status-item">
-                        <span class="label">WiFi Mode:</span>
+                        <span class="label">@Localization.Current.General.Settings.WifiMode</span>
                         <span class="value">@GetWifiModeText()</span>
                     </div>
                     @if (!string.IsNullOrEmpty(deviceStatus.StatusSTS?.Wifi?.SSId))
                     {
                         <div class="status-item">
-                            <span class="label">Bağlı Ağ:</span>
+                            <span class="label">@Localization.Current.General.Settings.ConnectedNetwork</span>
                             <span class="value">@deviceStatus.StatusSTS.Wifi.SSId</span>
                         </div>
                     }
@@ -65,7 +67,7 @@
             {
                 <div class="error-info">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <p>Cihaza bağlanılamadı. AP Mode'da olabilir.</p>
+                    <p>@Localization.Current.General.Settings.CannotConnectToDevice</p>
                     <small>IP: @CurrentIpAddress</small>
                 </div>
             }
@@ -78,29 +80,29 @@
     <div class="wifi-card">
         <div class="card-header">
             <i class="fas fa-wifi"></i>
-            <h3>WiFi Konfigürasyonu</h3>
+            <h3>@Localization.Current.General.Settings.WifiConfiguration</h3>
         </div>
         <div class="card-content">
             @if (deviceStatus == null)
             {
                 <!-- İlk Kurulum Senaryosu -->
                 <div class="setup-section">
-                    <h4>İlk Kurulum</h4>
-                    <p>Tasmota cihazınızı WiFi ağına bağlamak için aşağıdaki adımları izleyin:</p>
+                    <h4>@Localization.Current.General.Settings.InitialSetup</h4>
+                    <p>@Localization.Current.General.Settings.InitialSetupDescription</p>
                     
                     <div class="wifi-scan-section">
                         <button class="btn-primary-custom @(isScanning ? "btn-loading" : "")" 
                                 @onclick="ScanWifiNetworks" 
                                 disabled="@isScanning">
                             <i class="fas @(isScanning ? "fa-spinner fa-spin" : "fa-search")"></i>
-                            @(isScanning ? "Taranıyor..." : "WiFi Ağlarını Tara")
+                            @(isScanning ? @Localization.Current.General.Settings.Scanning : @Localization.Current.General.Settings.ScanWifiNetworks)
                         </button>
                     </div>
 
                     @if (wifiNetworks?.Any() == true)
                     {
                         <div class="network-list">
-                            <h5>Mevcut Ağlar:</h5>
+                            <h5>@Localization.Current.General.Settings.AvailableNetworks</h5>
                             @foreach (var network in wifiNetworks.Take(10))
                             {
                                 <div class="network-item @(selectedSsid == network.SSID ? "selected" : "")"
@@ -119,12 +121,12 @@
 
                     <div class="wifi-credentials">
                         <div class="form-group">
-                            <label>WiFi Ağı (SSID):</label>
-                            <input type="text" class="form-input" @bind="selectedSsid" placeholder="WiFi ağ adı" />
+                            <label>@Localization.Current.General.Settings.WifiNetwork</label>
+                            <input type="text" class="form-input" @bind="selectedSsid" placeholder="@Localization.Current.General.Settings.WifiNetworkPlaceholder" />
                         </div>
                         <div class="form-group">
-                            <label>Şifre:</label>
-                            <input type="password" class="form-input" @bind="wifiPassword" placeholder="WiFi şifresi" />
+                            <label>@Localization.Current.General.Settings.Password</label>
+                            <input type="password" class="form-input" @bind="wifiPassword" placeholder="@Localization.Current.General.Settings.WifiPasswordPlaceholder" />
                         </div>
                     </div>
 
@@ -133,7 +135,7 @@
                                 @onclick="SetupWifiConnection" 
                                 disabled="@(isSavingWifi || string.IsNullOrEmpty(selectedSsid))">
                             <i class="fas @(isSavingWifi ? "fa-spinner fa-spin" : "fa-save")"></i>
-                            @(isSavingWifi ? "Kaydediliyor..." : "WiFi Ayarlarını Kaydet")
+                            @(isSavingWifi ? @Localization.Current.General.Settings.Saving : @Localization.Current.General.Settings.SaveWifiSettings)
                         </button>
                     </div>
                 </div>
@@ -142,7 +144,7 @@
             {
                 <!-- Mevcut Bağlantı Senaryosu -->
                 <div class="current-connection">
-                    <h4>Mevcut Bağlantı</h4>
+                    <h4>@Localization.Current.General.Settings.CurrentConnection</h4>
                     <div class="connection-info">
                         <div class="info-item">
                             <i class="fas fa-wifi"></i>
@@ -150,18 +152,18 @@
                         </div>
                         <div class="info-item">
                             <i class="fas fa-signal"></i>
-                            <span>Sinyal: @deviceStatus.StatusSTS?.Wifi?.RSSI%</span>
+                            <span>@(string.Format(@Localization.Current.General.Settings.Signal, deviceStatus.StatusSTS?.Wifi?.RSSI ?? 0))</span>
                         </div>
                     </div>
                     
                     <div class="connection-actions">
                         <button class="btn-secondary-custom" @onclick="ShowChangeWifi">
                             <i class="fas fa-edit"></i>
-                            WiFi Değiştir
+                            @Localization.Current.General.Settings.ChangeWifi
                         </button>
                         <button class="btn-secondary-custom" @onclick="RepairWifiConnection">
                             <i class="fas fa-wrench"></i>
-                            WiFi Repair
+                            @Localization.Current.General.Settings.WifiRepair
                         </button>
                     </div>
 
@@ -169,14 +171,14 @@
                     {
                         <div class="wifi-change-section">
                             <hr style="margin: 20px 0; border: 1px solid var(--border-color);" />
-                            <h5>Yeni WiFi Ağı Seç</h5>
+                            <h5>@Localization.Current.General.Settings.SelectNewWifiNetwork</h5>
 
                             <div class="wifi-scan-section">
                                 <button class="btn-primary-custom @(isScanning ? "btn-loading" : "")" 
                                         @onclick="ScanWifiNetworks" 
                                         disabled="@isScanning">
                                     <i class="fas @(isScanning ? "fa-spinner fa-spin" : "fa-search")"></i>
-                                    @(isScanning ? "Taranıyor..." : "Ağları Yenile")
+                                    @(isScanning ? @Localization.Current.General.Settings.Scanning : @Localization.Current.General.Settings.RefreshNetworks)
                                 </button>
                             </div>
 
@@ -201,12 +203,12 @@
 
                             <div class="wifi-credentials">
                                 <div class="form-group">
-                                    <label>WiFi Ağı (SSID):</label>
-                                    <input type="text" class="form-input" @bind="selectedSsid" placeholder="WiFi ağ adı" />
+                                    <label>@Localization.Current.General.Settings.WifiNetwork</label>
+                                    <input type="text" class="form-input" @bind="selectedSsid" placeholder="@Localization.Current.General.Settings.WifiNetworkPlaceholder" />
                                 </div>
                                 <div class="form-group">
-                                    <label>Şifre:</label>
-                                    <input type="password" class="form-input" @bind="wifiPassword" placeholder="WiFi şifresi" />
+                                    <label>@Localization.Current.General.Settings.Password</label>
+                                    <input type="password" class="form-input" @bind="wifiPassword" placeholder="@Localization.Current.General.Settings.WifiPasswordPlaceholder" />
                                 </div>
                             </div>
 
@@ -215,11 +217,11 @@
                                         @onclick="ChangeWifiConnection" 
                                         disabled="@(isSavingWifi || string.IsNullOrEmpty(selectedSsid))">
                                     <i class="fas @(isSavingWifi ? "fa-spinner fa-spin" : "fa-save")"></i>
-                                    @(isSavingWifi ? "Değiştiriliyor..." : "WiFi Değiştir")
+                                    @(isSavingWifi ? @Localization.Current.General.Settings.Changing : @Localization.Current.General.Settings.ChangeWifi)
                                 </button>
                                 <button class="btn-secondary-custom" @onclick="CancelWifiChange">
                                     <i class="fas fa-times"></i>
-                                    İptal
+                                    @Localization.Current.General.Settings.Cancel
                                 </button>
                             </div>
                         </div>
@@ -235,21 +237,21 @@
     <div class="actions-card">
         <div class="card-header">
             <i class="fas fa-tools"></i>
-            <h3>Hızlı İşlemler</h3>
+            <h3>@Localization.Current.General.Settings.QuickActions</h3>
         </div>
         <div class="card-content">
             <div class="action-buttons">
                 <button class="btn-secondary-custom" @onclick="RestartDevice">
                     <i class="fas fa-power-off"></i>
-                    Cihazı Yeniden Başlat
+                    @Localization.Current.General.Settings.RestartDevice
                 </button>
                 <button class="btn-secondary-custom" @onclick="EnableMdns">
                     <i class="fas fa-broadcast-tower"></i>
-                    mDNS Aktifleştir
+                    @Localization.Current.General.Settings.EnableMdns
                 </button>
                 <button class="btn-danger-custom" @onclick="ShowFactoryReset">
                     <i class="fas fa-exclamation-triangle"></i>
-                    Factory Reset
+                    @Localization.Current.General.Settings.FactoryReset
                 </button>
             </div>
         </div>
@@ -275,7 +277,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Localization.LanguageChanged += OnLanguageChanged;
         await LoadDeviceStatus();
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged); // Update UI
     }
 
     private async Task LoadDeviceStatus()
@@ -305,9 +313,9 @@
         // WifiConfig değerine göre mode belirleme
         // 2 = AP Mode + Config, 4 = Client Mode
         if (deviceStatus?.StatusNET?.WifiConfig == 2)
-            return "AP + Config Mode";
+            return @Localization.Current.General.Settings.ApConfigMode;
         
-        return deviceStatus?.StatusSTS?.Wifi?.SSId != null ? "Client Mode" : "AP Mode";
+        return deviceStatus?.StatusSTS?.Wifi?.SSId != null ? @Localization.Current.General.Settings.ClientMode : @Localization.Current.General.Settings.ApMode;
     }
 
     private async Task ScanWifiNetworks()
@@ -321,7 +329,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "Tarama Hatası", ex.Message);
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.ScanError, ex.Message);
         }
         finally
         {
@@ -354,7 +362,7 @@
     {
         if (string.IsNullOrEmpty(selectedSsid))
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "Hata", "Lütfen bir WiFi ağı seçin.");
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.Error, @Localization.Current.General.Settings.PleaseSelectWifiNetwork);
             return;
         }
 
@@ -373,8 +381,8 @@
             await tasmotaClient.SetWifiCredentialsAsync(selectedSsid, wifiPassword, false);
 
             await JSRuntime.InvokeVoidAsync("showSuccessAlert", 
-                "WiFi Ayarları Kaydedildi", 
-                $"Cihaz '{selectedSsid}' ağına bağlanmaya çalışacak. Birkaç saniye sonra yeniden bağlanabilirsiniz.");
+                @Localization.Current.General.Settings.WifiSettingsSaved, 
+                string.Format(@Localization.Current.General.Settings.WifiSettingsSavedMessage, selectedSsid));
 
             // Sayfa yenileme veya ana sayfaya dönüş
             await Task.Delay(3000);
@@ -382,7 +390,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "Kaydetme Hatası", ex.Message);
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.SaveError, ex.Message);
         }
         finally
         {
@@ -402,7 +410,7 @@
     {
         if (string.IsNullOrEmpty(selectedSsid))
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "Hata", "Lütfen bir WiFi ağı seçin.");
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.Error, @Localization.Current.General.Settings.PleaseSelectWifiNetwork);
             return;
         }
 
@@ -419,8 +427,8 @@
             await tasmotaClient.SetWifiCredentialsAsync(selectedSsid, wifiPassword, false);
 
             await JSRuntime.InvokeVoidAsync("showSuccessAlert", 
-                "WiFi Değiştirildi", 
-                $"Cihaz '{selectedSsid}' ağına bağlanmaya çalışacak. Birkaç saniye sonra yeniden bağlanabilirsiniz.");
+                @Localization.Current.General.Settings.WifiChanged, 
+                string.Format(@Localization.Current.General.Settings.WifiChangedMessage, selectedSsid));
 
             showWifiChange = false;
             await Task.Delay(2000);
@@ -428,7 +436,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "WiFi Değiştirme Hatası", ex.Message);
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.WifiChangeError, ex.Message);
         }
         finally
         {
@@ -452,24 +460,29 @@
             await tasmotaClient.SetWifiRecoveryModeAsync(WifiRecoveryMode.AccessPoint);
             await tasmotaClient.RestartAsync();
             await JSRuntime.InvokeVoidAsync("showInfoAlert", 
-                "WiFi Repair", 
-                "Cihaz yeniden başlatıldı. WiFi bağlantısı onarılıyor...");
+                @Localization.Current.General.Settings.WifiRepairTitle, 
+                @Localization.Current.General.Settings.WifiRepairMessage);
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "Repair Hatası", ex.Message);
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.RepairError, ex.Message);
         }
     }
 
     private async Task RestartDevice()
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("showDeleteConfirmation", 
-            "Cihazı Yeniden Başlat", 
-            "Cihazı yeniden başlatmak istediğinize emin misiniz?");
+            @Localization.Current.General.Settings.RestartDeviceTitle, 
+            @Localization.Current.General.Settings.RestartDeviceConfirm,
+            @Localization.Current.General.Settings.RestartConfirm,    // "Evet, Yeniden Başlat"
+            @Localization.Current.General.Settings.RestartCancel);    // "İptal"
         if (confirmed)
         {
             await tasmotaClient.RestartAsync();
-            await JSRuntime.InvokeVoidAsync("showInfoAlert", "Yeniden Başlatma", "Cihaz yeniden başlatılıyor...");
+            await JSRuntime.InvokeVoidAsync("showInfoAlert", 
+                @Localization.Current.General.Settings.RestartingTitle, 
+                @Localization.Current.General.Settings.RestartingMessage,
+                @Localization.Current.General.Settings.Ok);
         }
     }
 
@@ -478,29 +491,46 @@
         try
         {
             await tasmotaClient.EnableMdnsAsync(true);
-            await JSRuntime.InvokeVoidAsync("showSuccessAlert", "mDNS", "mDNS başarıyla aktifleştirildi.");
+            await JSRuntime.InvokeVoidAsync("showSuccessAlert", 
+                @Localization.Current.General.Settings.MdnsTitle, 
+                @Localization.Current.General.Settings.MdnsSuccess,
+                @Localization.Current.General.Settings.Ok);       // confirmText
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", "mDNS Hatası", ex.Message);
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", 
+                @Localization.Current.General.Settings.MdnsError, 
+                ex.Message,
+                @Localization.Current.General.Settings.Ok);       // confirmText
         }
     }
 
     private async Task ShowFactoryReset()
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("showDeleteConfirmation", 
-            "Factory Reset", 
-            "Factory Reset yapılsın mı?\n\nBu işlem tüm ayarları siler ve geri alınamaz!");
-        
+            @Localization.Current.General.Settings.FactoryResetTitle, 
+            @Localization.Current.General.Settings.FactoryResetConfirm,
+            @Localization.Current.General.BoardCard.DeleteYes,    // confirmText
+            @Localization.Current.General.BoardCard.DeleteNo);    // cancelText
+    
         if (confirmed)
         {
-            await tasmotaClient.FactoryResetAsync(2); // Keep WiFi/MQTT
-            await JSRuntime.InvokeVoidAsync("showInfoAlert", "Factory Reset", "Cihaz fabrika ayarlarına döndürülüyor...");
+            await tasmotaClient.FactoryResetAsync(2);
+            await JSRuntime.InvokeVoidAsync("showInfoAlert", 
+                @Localization.Current.General.Settings.FactoryResetTitle, 
+                @Localization.Current.General.Settings.FactoryResetMessage,
+                @Localization.Current.General.Settings.Ok);       // confirmText
         }
     }
+
 
     private void GoBack()
     {
         navigation.NavigateTo("/");
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
     }
 }

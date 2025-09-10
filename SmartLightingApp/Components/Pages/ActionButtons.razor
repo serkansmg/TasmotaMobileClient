@@ -1,18 +1,19 @@
 @namespace SmartLightingApp.Components.Pages
-
+@inject ILocalizationService Localization
+@implements IDisposable
 <!-- Action Buttons -->
 <div class="action-buttons">
     <button class="btn-primary-custom" @onclick="OnDiscoverDevices" disabled="@IsRefreshing">
         <i class="fas fa-search"></i>
-        Cihaz Keşfi
+        @Localization.Current.General.ActionButtons.DeviceDiscovery
     </button>
     <button class="btn-secondary-custom" @onclick="OnAddNewBoard" disabled="@IsRefreshing">
         <i class="fas fa-plus"></i>
-        Manuel Ekle
+        @Localization.Current.General.ActionButtons.AddManually
     </button>
     <button class="btn-secondary-custom @(IsRefreshing ? "btn-loading" : "")" @onclick="OnRefreshBoards" disabled="@IsRefreshing">
         <i class="fas @(IsRefreshing ? "fa-spinner fa-spin" : "fa-sync")"></i>
-        @(IsRefreshing ? "Yeniliyor..." : "Yenile")
+        @(IsRefreshing ? @Localization.Current.General.ActionButtons.Refreshing : @Localization.Current.General.ActionButtons.Refresh)
     </button>
 </div>
 
@@ -21,4 +22,24 @@
     [Parameter] public EventCallback OnAddNewBoard { get; set; }
     [Parameter] public EventCallback OnRefreshBoards { get; set; }
     [Parameter] public bool IsRefreshing { get; set; } = false;
+    
+    protected override void OnInitialized()
+    {
+        Localization.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void ChangeLanguage(string language)
+    {
+        Localization.SetLanguage(language);
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged); // Update UI
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
+    }
 }

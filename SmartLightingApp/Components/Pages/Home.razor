@@ -4,7 +4,8 @@
 @inject RelayDataService RelayDataService
 @inject NavigationManager Navigation
 @inject TasmotaClient _tasmotaClient
-
+@inject ILocalizationService Localization
+@implements IDisposable
 <Header OnSettingsClick="HandleSettingsClick"/>
 
 <StatsCard BoardCount="@boards.Count"/>
@@ -29,15 +30,15 @@
             <div class="empty-icon">
                 <i class="fas fa-microchip"></i>
             </div>
-            <p>Henüz relay board eklenmemiş.</p>
+            <p>@Localization.Current.General.ActionButtons.NoRelayDeviceAddedYet</p>
             <div class="empty-state-actions">
                 <button class="btn-primary-custom" @onclick="HandleDiscoverDevices">
                     <i class="fas fa-search"></i>
-                    Cihaz Keşfi Yap
+                    @Localization.Current.General.ActionButtons.DeviceDiscovery
                 </button>
                 <button class="btn-secondary-custom" @onclick="HandleAddNewBoard">
                     <i class="fas fa-plus"></i>
-                    Manuel Ekle
+                    @Localization.Current.General.ActionButtons.AddManually
                 </button>
             </div>
         </div>
@@ -46,7 +47,10 @@
 
 <!-- Bottom Safe Area -->
 <div class="bottom-safe-area"></div>
-
+<ManualAddDeviceModal 
+    IsVisible="@showManualAddModal" 
+    OnClose="@(() => showManualAddModal = false)"
+    OnDeviceAdded="@OnDeviceAdded" />
 @code {
     private List<RelayBoard> boards = new();
     private bool isRefreshing = false;
@@ -80,7 +84,32 @@
         Navigation.NavigateTo("/discovery");
     }
 
+    private bool showManualAddModal = false;
+
+    private async Task OnDeviceAdded(RelayBoard addedBoard)
+    {
+        showManualAddModal = false;
+        boards.Add(addedBoard);
+    
+        // Board ID'lerini relay'lere ata
+        foreach (var relay in addedBoard.Relays)
+        {
+            relay.BoardId = addedBoard.Id;
+        }
+    
+        await JSRuntime.InvokeVoidAsync("showSuccessAlert",
+            Localization.Current.General.ActionButtons.BoardAddedTitle,
+            string.Format(Localization.Current.General.ActionButtons.BoardAddedMessage, addedBoard.Name),
+            @Localization.Current.General.Settings.Ok); 
+        StateHasChanged();
+    }
     private async Task HandleAddNewBoard()
+    {
+        if (isRefreshing) return;
+        showManualAddModal = true;
+        StateHasChanged();
+    }
+    private async Task HandleAddNewBoardz()
     {
         if (isRefreshing) return;
 
@@ -129,14 +158,14 @@
             StateHasChanged();
 
             await JSRuntime.InvokeVoidAsync("showSuccessAlert",
-                "Board Eklendi",
-                $"'{boardName}' başarıyla eklendi!");
+                Localization.Current.General.ActionButtons.BoardAddedTitle,
+                string.Format(Localization.Current.General.ActionButtons.BoardAddedMessage,boardName));
         }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("showErrorAlert",
-                "Ekleme Hatası",
-                $"Board eklenirken hata oluştu: {ex.Message}");
+                Localization.Current.General.ActionButtons.BoardAddErrorTitle,
+                Localization.Current.General.ActionButtons.BoardAddErrorMessage);
         }
     }
 
@@ -224,8 +253,9 @@
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("showErrorAlert",
-                "Yenileme Hatası",
-                $"Board durumları güncellenirken hata oluştu: {ex.Message}");
+                Localization.Current.General.ActionButtons.RefreshErrorTitle,
+                Localization.Current.General.ActionButtons.RefreshErrorMessage,
+                @Localization.Current.General.Settings.Ok); 
         }
         finally
         {
@@ -252,4 +282,24 @@
     }
 
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    
+    protected override void OnInitialized()
+    {
+        Localization.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void ChangeLanguage(string language)
+    {
+        Localization.SetLanguage(language);
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged); // Update UI
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
+    }
 }

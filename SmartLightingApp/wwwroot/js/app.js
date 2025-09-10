@@ -45,43 +45,43 @@ window.focusAndSelect = (elementId) => {
 };
 
 // SweetAlert2 Custom Functions
-window.showDeleteConfirmation = async (title, text) => {
+window.showDeleteConfirmation = async (title, text,confirmText,cancelText) => {
     const result = await Swal.fire({
         title: title || 'Silmek istediğinize emin misiniz?',
         text: text || 'Bu işlem geri alınamaz!',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Evet, Sil',
-        cancelButtonText: 'İptal',
+        confirmButtonText: confirmText|| 'Evet, Sil',
+        cancelButtonText:cancelText|| 'İptal',
         reverseButtons: true
     });
     return result.isConfirmed;
 };
 
-window.showSuccessAlert = async (title, text) => {
+window.showSuccessAlert = async (title, text,confirmText) => {
     await Swal.fire({
         title: title || 'Başarılı!',
         text: text,
         icon: 'success',
-        confirmButtonText: 'Tamam'
+        confirmButtonText:confirmText|| 'Tamam'
     });
 };
 
-window.showErrorAlert = async (title, text) => {
+window.showErrorAlert = async (title, text,confirmText) => {
     await Swal.fire({
         title: title || 'Hata!',
         text: text,
         icon: 'error',
-        confirmButtonText: 'Tamam'
+        confirmButtonText: confirmText|| 'Tamam'
     });
 };
 
-window.showInfoAlert = async (title, text) => {
+window.showInfoAlert = async (title, text,confirmText) => {
     await Swal.fire({
         title: title,
         text: text,
         icon: 'info',
-        confirmButtonText: 'Tamam'
+        confirmButtonText:confirmText|| 'Tamam'
     });
 };
 

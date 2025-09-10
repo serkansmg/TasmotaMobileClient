@@ -325,6 +325,7 @@ public class RelayDataService
         _boards.Clear();
         Preferences.Remove(BOARDS_KEY);
         Preferences.Remove(LAST_UPDATE_KEY);
+        Preferences.Remove(LANGUAGE_KEY); 
         await Task.CompletedTask;
     }
 
@@ -377,4 +378,26 @@ public class RelayDataService
     }
 
     #endregion
+    // Constants bölümüne ekle
+    private const string LANGUAGE_KEY = "selected_language";
+
+// Language Operations bölümünü ekle
+    #region Language Operations
+
+    public async Task<string> GetSavedLanguageAsync()
+    {
+        var savedLanguage = Preferences.Get(LANGUAGE_KEY, "en");
+        await Task.CompletedTask;
+        return savedLanguage;
+    }
+
+    public async Task SaveLanguageAsync(string languageCode)
+    {
+        Preferences.Set(LANGUAGE_KEY, languageCode);
+        await Task.CompletedTask;
+    }
+
+    #endregion
+ 
+    
 }

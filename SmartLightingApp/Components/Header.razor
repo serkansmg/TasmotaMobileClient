@@ -1,4 +1,8 @@
 @namespace SmartLightingApp.Components
+@inject ILocalizationService Localization
+@inject RelayDataService dataService
+@implements IDisposable
+@inject IJSRuntime JSRuntime
 
 <!-- Header -->
 <div class="header">
@@ -7,15 +11,113 @@
             <i class="fas fa-microchip"></i>
         </div>
         <div class="header-title">
-            <h1>Smart Relay Control</h1>
-            <p class="header-subtitle">Akıllı Aydınlatma kontrol sistemi</p>
+            <h1>@Localization.Current.General.Header.Title</h1>
+            <p class="header-subtitle">@Localization.Current.General.Header.Subtitle</p>
         </div>
     </div>
-    <button class="profile-btn" @onclick="OnSettingsClick">
-        <i class="fas fa-cog"></i>
-    </button>
+    <div class="header-actions">
+        <!-- Language Selector -->
+        <div class="language-selector @(isLanguageDropdownOpen ? "open" : "")">
+            <button class="language-btn" @onclick="ToggleLanguageDropdown">
+                <i class="fas fa-globe"></i>
+                <span class="current-lang">@GetCurrentLanguageDisplay()</span>
+                <i class="fas fa-chevron-down dropdown-arrow"></i>
+            </button>
+            @if (isLanguageDropdownOpen)
+            {
+                <div class="language-dropdown" @onclick:stopPropagation="true">
+                    @foreach (var lang in availableLanguages)
+                    {
+                        <button class="language-option @(lang.Code == Localization.CurrentLanguage ? "active" : "")"
+                                @onclick="() => SelectLanguage(lang.Code)">
+                            <div class="language-flag">@lang.Flag</div>
+                            <div class="language-info">
+                                <span class="language-name">@lang.Name</span>
+                                <small class="language-code">@lang.Code.ToUpper()</small>
+                            </div>
+                            @if (lang.Code == Localization.CurrentLanguage)
+                            {
+                                <i class="fas fa-check language-check"></i>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+        
+        <!-- Settings Button -->
+        <button class="profile-btn" @onclick="OnSettingsClick">
+            <i class="fas fa-cog"></i>
+        </button>
+    </div>
 </div>
+
+<!-- Overlay to close dropdown when clicking outside -->
+@if (isLanguageDropdownOpen)
+{
+    <div class="dropdown-overlay" @onclick="CloseLanguageDropdown"></div>
+}
 
 @code {
     [Parameter] public EventCallback OnSettingsClick { get; set; }
+    
+    private bool isLanguageDropdownOpen = false;
+    
+    private readonly List<LanguageOption> availableLanguages = new()
+    {
+        new LanguageOption { Code = "en", Name = "English", Flag = "🇺🇸" },
+        new LanguageOption { Code = "tr", Name = "Türkçe", Flag = "🇹🇷" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+     
+        Localization.LanguageChanged += OnLanguageChanged;
+        var defaultLang=await dataService.GetSavedLanguageAsync();
+        if (!string.IsNullOrEmpty(defaultLang) && defaultLang != Localization.CurrentLanguage)
+        {
+            Localization.SetLanguage(defaultLang);
+        }
+    }
+
+    private void ToggleLanguageDropdown()
+    {
+        isLanguageDropdownOpen = !isLanguageDropdownOpen;
+        StateHasChanged();
+    }
+
+    private void CloseLanguageDropdown()
+    {
+        isLanguageDropdownOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task SelectLanguage(string languageCode)
+    {
+        if (languageCode != Localization.CurrentLanguage)
+        {
+            Localization.SetLanguage(languageCode);
+            await dataService.SaveLanguageAsync(languageCode);
+        }
+        isLanguageDropdownOpen = false;
+        StateHasChanged();
+    }
+
+    private string GetCurrentLanguageDisplay()
+    {
+        var currentLang = availableLanguages.FirstOrDefault(l => l.Code == Localization.CurrentLanguage);
+        return currentLang?.Flag ?? "🌐";
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+
 }

@@ -20,6 +20,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+<!--        <CompilerGeneratedFilesOutputPath>obj/Generated</CompilerGeneratedFilesOutputPath>-->
 
         <!-- Display name -->
         <ApplicationTitle>SmartLighting</ApplicationTitle>
@@ -61,13 +63,22 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)"/>
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0"/>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.100" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="9.0.100" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
         <PackageReference Include="Makaretu.Dns.Multicast.New" Version="0.38.0" />
+        <PackageReference Include="SMGLocalization.SourceGenerator" Version="1.0.0">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="TasmotaSharp" Version="1.0.3" />
     </ItemGroup>
 
-    
+
+    <ItemGroup>
+        <Folder Include="i18n\**\*.json" />
+        <Content Remove="i18n\**\*.json" />
+        <AdditionalFiles Include="i18n\**\*.json" />
+    </ItemGroup>
 
 </Project>

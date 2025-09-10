@@ -1,5 +1,8 @@
 @namespace SmartLightingApp.Components.Pages
+
 @inject TasmotaClient _client
+@inject ILocalizationService Localization
+@implements IDisposable
 <div class="board-card" data-board-id="@Board.Id">
     <div class="board-header" @onclick="ToggleExpansion">
         <div class="board-info">
@@ -13,57 +16,59 @@
                               OnValueChanged="@OnBoardNameChanged"
                               OnEditingStarted="@OnEditingStarted"
                               IsDisabled="@(!Board.IsOnline)"
-                              PlaceholderText="Board Adı" />
-    
+                              PlaceholderText="@Localization.Current.General.BoardCard.BoardName"/>
+
                 <!-- Updated board-status layout for single line -->
                 <div class="board-status-line">
                     <span class="board-ip">@Board.IpAddress</span>
                     <span class="status-badge @(Board.IsOnline ? "online" : "offline")">
                         <span class="status-dot"></span>
-                        @(Board.IsOnline ? "ONLINE" : "OFFLINE")
+                        @(Board.IsOnline ? Localization.Current.General.BoardCard.Online : Localization.Current.General.BoardCard.Offline)
                     </span>
-                    <span class="relay-summary">@Board.RelaysSummary</span>
+                    <span class="relay-summary">
+                        @(string.IsNullOrEmpty(@Board.RelaysSummary) ? Localization.Current.General.BoardCard.Unknown : string.Format(@Localization.Current.General.BoardCard.ActiveCount, Board.RelaysSummary))
+                    </span>
                 </div>
             </div>
         </div>
         <div class="board-actions">
             <!-- Toggle butonları her zaman görünür -->
-            <button class="toggle-all-btn on-btn" 
-                    @onclick="() => ToggleAllRelays(true)" 
+            <button class="toggle-all-btn on-btn"
+                    @onclick="() => ToggleAllRelays(true)"
                     @onclick:stopPropagation="true"
                     disabled="@(isTogglingAll || !Board.IsOnline)"
-                    title="Hepsini Aç">
+                    title="@Localization.Current.General.BoardCard.TurnAllOn">
                 <i class="fas fa-lightbulb"></i>
             </button>
-    
-            <button class="toggle-all-btn off-btn" 
-                    @onclick="() => ToggleAllRelays(false)" 
+
+            <button class="toggle-all-btn off-btn"
+                    @onclick="() => ToggleAllRelays(false)"
                     @onclick:stopPropagation="true"
                     disabled="@(isTogglingAll || !Board.IsOnline)"
-                    title="Hepsini Kapat">
+                    title="@Localization.Current.General.BoardCard.TurnAllOff">
                 <i class="fas fa-power-off"></i>
             </button>
-    
+
             <button class="expand-btn @(IsExpanded ? "expanded" : "") @(!Board.IsOnline ? "disabled" : "")"
-                    @onclick="ToggleExpansion" 
+                    @onclick="ToggleExpansion"
                     @onclick:stopPropagation="true"
                     disabled="@(!Board.IsOnline)">
                 <i class="fas fa-chevron-down"></i>
             </button>
-            <button class="settings-btn" 
-                    @onclick="() => GoToSettings()" 
+            <button class="settings-btn"
+                    @onclick="() => GoToSettings()"
                     @onclick:stopPropagation="true"
-                    title="Board Ayarları">
+                    title="@Localization.Current.General.BoardCard.BoardSettings">
                 <i class="fas fa-cog"></i>
             </button>
-            <button class="delete-btn" 
-                    @onclick="OnDeleteBoard" 
+            <button class="delete-btn"
+                    @onclick="OnDeleteBoard"
                     @onclick:stopPropagation="true">
                 <i class="fas fa-trash"></i>
             </button>
         </div>
     </div>
-    
+
     @if (IsExpanded && Board.IsOnline)
     {
         <!-- Relays List -->
@@ -71,12 +76,12 @@
             <div class="relays-list">
                 @foreach (var relay in Board.Relays)
                 {
-                    <RelayItemPage Relay="relay"  Board="Board"
+                    <RelayItemPage Relay="relay" Board="Board"
                                    client="_client"
-                              IsDisabled="@(!Board.IsOnline)"
-                              OnRelayStateChanged="HandleRelayStateChanged"
-                              OnTimerStateChanged="HandleTimerStateChanged"
-                              OnNameUpdated="HandleRelayNameUpdated" />
+                                   IsDisabled="@(!Board.IsOnline)"
+                                   OnRelayStateChanged="HandleRelayStateChanged"
+                                   OnTimerStateChanged="HandleTimerStateChanged"
+                                   OnNameUpdated="HandleRelayNameUpdated"/>
                 }
             </div>
         </div>
@@ -91,31 +96,32 @@
     private bool AllRelaysOn => Board.Relays.All(r => r.IsOn);
     private bool IsExpanded = false;
     private bool IsEditingBoardName = false;
+
     protected override async Task OnInitializedAsync()
     {
         bool needToUpdate = false;
         _client.SetIp(Board.IpAddress);
-        
+
         var status = await _client.GetStatusAsync();
-        if (status!=null)
+        if (status != null)
         {
-            if (Board.IsOnline!=true)
+            if (Board.IsOnline != true)
             {
-                Board.IsOnline= true;
+                Board.IsOnline = true;
                 needToUpdate = true;
             }
-            if (status.StatusNET!=null && Board.IpAddress!= status.StatusNET.IPAddress)
+
+            if (status.StatusNET != null && Board.IpAddress != status.StatusNET.IPAddress)
             {
                 Board.IpAddress = status.StatusNET.IPAddress;
                 needToUpdate = true;
             }
-            
         }
         else
         {
-            if (Board.IsOnline==true)
+            if (Board.IsOnline == true)
             {
-                Board.IsOnline= false;
+                Board.IsOnline = false;
                 needToUpdate = true;
             }
         }
@@ -124,23 +130,23 @@
         {
             await OnBoardUpdated.InvokeAsync(Board);
             await InvokeAsync(StateHasChanged);
-
         }
     }
-   
-    
+
+
     private async Task ToggleAllRelays(bool targetState)
     {
         if (isTogglingAll || !Board.IsOnline) return;
-    
+
         try
         {
             isTogglingAll = true;
             StateHasChanged();
-        
+
             _client.SetIp(Board.IpAddress);
-        
+
             // Paralel olarak tüm relay'leri değiştir
+
             var tasks = Board.Relays.Select(async relay =>
             {
                 try
@@ -157,9 +163,9 @@
                     // Tek relay hatası tüm işlemi durdurmasın
                 }
             });
-        
+
             await Task.WhenAll(tasks);
-        
+
             await OnBoardUpdated.InvokeAsync(Board);
             StateHasChanged();
         }
@@ -173,13 +179,13 @@
             StateHasChanged();
         }
     }
-    
+
     private void ToggleExpansion()
     {
         if (!Board.IsOnline) return;
-        
+
         IsExpanded = !IsExpanded;
-        
+
         if (IsExpanded)
         {
             // Simulate loading delay (in real app, this would fetch latest states from TasmotaClient)
@@ -200,10 +206,10 @@
     {
         IsEditingBoardName = false;
         Board.Name = newName;
-        
+
         // In real app, this would save to database/config
         Console.WriteLine($"Board {Board.Id} renamed to: '{newName}'");
-        
+
         await OnBoardUpdated.InvokeAsync(Board);
     }
 
@@ -219,9 +225,11 @@
 
     private async Task<bool> ShowDeleteConfirmation()
     {
-        var result = await JSRuntime.InvokeAsync<bool>("showDeleteConfirmation", 
-            "Board Sil", 
-            $"'{Board.Name}' board'unu silmek istediğinize emin misiniz?");
+        var result = await JSRuntime.InvokeAsync<bool>("showDeleteConfirmation",
+            Localization.Current.General.BoardCard.DeleteBoard,
+            string.Format(Localization.Current.General.BoardCard.ConfirmBoardDelete, Board.Name),
+            Localization.Current.General.BoardCard.DeleteYes, Localization.Current.General.BoardCard.DeleteNo
+        );
         return result;
     }
 
@@ -229,10 +237,10 @@
     {
         // Update the board's relay summary
         StateHasChanged();
-        
+
         // Notify parent component
         await OnBoardUpdated.InvokeAsync(Board);
-        
+
         // In real app, this would call TasmotaClient API
         Console.WriteLine($"Relay {relay.RelayNumber} on Board {Board.Id} {(relay.IsOn ? "turned ON" : "turned OFF")}");
     }
@@ -241,7 +249,7 @@
     {
         // In real app, this would open timer configuration page
         await JSRuntime.InvokeVoidAsync("showTimerConfigAlert", Board.Name, relay.Name);
-        
+
         await OnBoardUpdated.InvokeAsync(Board);
     }
 
@@ -249,15 +257,37 @@
     {
         // In real app, this would save to database/config
         Console.WriteLine($"Relay {relay.RelayNumber} on Board {Board.Id} renamed to: '{relay.Name}'");
-        
+
         await OnBoardUpdated.InvokeAsync(Board);
     }
 
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
     private void GoToSettings()
     {
         Navigation.NavigateTo($"/settings/{Board.IpAddress}");
     }
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        Localization.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void ChangeLanguage(string language)
+    {
+        Localization.SetLanguage(language);
+    }
+
+    private void OnLanguageChanged(object sender, LanguageChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged); // Update UI
+    }
+
+    public void Dispose()
+    {
+        Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
 }
