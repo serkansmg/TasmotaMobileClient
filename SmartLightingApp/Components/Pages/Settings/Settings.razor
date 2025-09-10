@@ -325,11 +325,20 @@
             isScanning = true;
             StateHasChanged();
 
-            wifiNetworks = await tasmotaClient.ScanWifiAsync();
+            var scanResults = await tasmotaClient.ScanWifiAsync();
+
+            // Aynı SSID'leri grupla, RSSI en yüksek olanı seç
+            wifiNetworks = scanResults?
+                .GroupBy(n => n.SSID)
+                .Select(g => g.OrderByDescending(n => n.RssiPercent ?? 0).First())
+                .OrderByDescending(n => n.RssiPercent ?? 0) // listeyi güçlüden zayıfa sırala
+                .ToList();
+            
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("showErrorAlert", @Localization.Current.General.Settings.ScanError, ex.Message);
+            await JSRuntime.InvokeVoidAsync("showErrorAlert", 
+                Localization.Current.General.Settings.ScanError, ex.Message);
         }
         finally
         {

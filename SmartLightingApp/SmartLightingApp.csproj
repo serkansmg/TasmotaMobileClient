@@ -21,6 +21,7 @@
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        
 <!--        <CompilerGeneratedFilesOutputPath>obj/Generated</CompilerGeneratedFilesOutputPath>-->
 
         <!-- Display name -->
@@ -30,7 +31,7 @@
         <ApplicationId>com.matrix.smartlightingapp</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationDisplayVersion>1</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
@@ -44,6 +45,11 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <AndroidPackageFormat>apk</AndroidPackageFormat>
+    </PropertyGroup>
+
+   
     <ItemGroup>
         <!-- App Icon -->
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#2DD4BF"/>
@@ -63,15 +69,15 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.100" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="9.0.100" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
+        <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.82" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="9.0.82" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
         <PackageReference Include="Makaretu.Dns.Multicast.New" Version="0.38.0" />
         <PackageReference Include="SMGLocalization.SourceGenerator" Version="1.0.0">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="TasmotaSharp" Version="1.0.3" />
+        <PackageReference Include="TasmotaSharp" Version="1.0.4" />
     </ItemGroup>
 
 
@@ -80,5 +86,5 @@
         <Content Remove="i18n\**\*.json" />
         <AdditionalFiles Include="i18n\**\*.json" />
     </ItemGroup>
-
+    
 </Project>

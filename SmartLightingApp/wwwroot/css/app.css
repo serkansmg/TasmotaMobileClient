@@ -2463,3 +2463,13 @@ html, body {
         justify-content: center;
     }
 }
+
+.app-version {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 6px 0;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-color);
+    opacity: 0.8;
+}

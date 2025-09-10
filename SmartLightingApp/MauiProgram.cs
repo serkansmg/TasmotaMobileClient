@@ -21,15 +21,27 @@ public static class MauiProgram
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
 #endif
+
+        // HttpClient factory'yi önce kaydet
         builder.Services.AddHttpClient();
+        
+        // TasmotaClient'ı factory pattern ile kaydet (daha güvenilir)
+        builder.Services.AddTransient<TasmotaClient>(provider =>
+        {
+            var httpClientFactory = provider.GetService<IHttpClientFactory>();
+            var logger = provider.GetService<ILogger<TasmotaClient>>();
+            return new TasmotaClient(logger: logger, httpClientFactory: httpClientFactory);
+        });
+        
         builder.Services.AddSingleton<TasmotaMdnsDiscoveryService>();
-        builder.Services.AddTransient<TasmotaClient>();
         builder.Services.AddSingleton<RelayDataService>();
+        
         builder.Services.AddLocalization(options =>
         {
             options.DefaultLanguage = "en";
             options.FallbackLanguage = "en";
         });
+        
         return builder.Build();
     }
 }

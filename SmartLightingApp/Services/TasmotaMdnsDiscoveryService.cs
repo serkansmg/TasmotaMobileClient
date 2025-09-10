@@ -38,7 +38,8 @@ public class TasmotaMdnsDiscoveryService : IDisposable
     public TasmotaMdnsDiscoveryService()
     {
         _discoveredDevices = new List<TasmotaDiscoveredDevice>();
-        _pendingDevices = new Dictionary<string, TasmotaDiscoveredDevice>();
+        _pendingDevices = new Dictionary<string, TasmotaDiscoveredDevice>(StringComparer.OrdinalIgnoreCase);
+
     }
 
     public async Task TestMulticastSocket()
@@ -218,6 +219,7 @@ public class TasmotaMdnsDiscoveryService : IDisposable
             if (!isTasmotaService) return;
 
             var instanceName = serviceName.Split('.')[0];
+            instanceName = instanceName.ToLowerInvariant();
             
             bool isTasmotaDevice = instanceName.StartsWith("tasmota", StringComparison.OrdinalIgnoreCase) ||
                                   instanceName.Contains("esp", StringComparison.OrdinalIgnoreCase) ||
@@ -229,7 +231,7 @@ public class TasmotaMdnsDiscoveryService : IDisposable
 
             var device = new TasmotaDiscoveredDevice
             {
-                Hostname = serviceName,
+                Hostname = serviceName.ToLowerInvariant(),
                 DeviceId = instanceName,
                 LastSeen = DateTime.Now
             };
@@ -262,7 +264,8 @@ public class TasmotaMdnsDiscoveryService : IDisposable
                 _pendingDevices.Remove(serviceName);
             }
 
-            var deviceToRemove = _discoveredDevices.FirstOrDefault(d => d.Hostname == serviceName);
+            var deviceToRemove = _discoveredDevices
+                .FirstOrDefault(d => string.Equals(d.Hostname, serviceName, StringComparison.OrdinalIgnoreCase));
             if (deviceToRemove != null)
             {
                 RemoveDevice(deviceToRemove.DeviceId);
@@ -339,14 +342,14 @@ public class TasmotaMdnsDiscoveryService : IDisposable
             var aRecords = e.Message.Answers.OfType<ARecord>();
             foreach (var aRecord in aRecords)
             {
-                var hostName = aRecord.Name.ToString().ToLower();
+                var hostName = aRecord.Name.ToString().ToLowerInvariant();
 
                 lock (_lockObject)
                 {
                     // Check pending devices
                     var deviceToUpdate = _pendingDevices.Values.FirstOrDefault(d => 
                     {
-                        var instanceName = d.Hostname.Split('.')[0].ToLower();
+                        var instanceName = d.Hostname.Split('.')[0].ToLowerInvariant();
                         var expectedHostname = instanceName + ".local";
                         return expectedHostname == hostName;
                     });
@@ -393,7 +396,9 @@ public class TasmotaMdnsDiscoveryService : IDisposable
     {
         lock (_lockObject)
         {
-            var existing = _discoveredDevices.FirstOrDefault(d => d.DeviceId == device.DeviceId);
+            var existing = _discoveredDevices
+                .FirstOrDefault(d => string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase));
+
             if (existing != null)
             {
                 existing.IpAddress = device.IpAddress;
@@ -415,7 +420,8 @@ public class TasmotaMdnsDiscoveryService : IDisposable
     {
         lock (_lockObject)
         {
-            var device = _discoveredDevices.FirstOrDefault(d => d.DeviceId == deviceId);
+            var device = _discoveredDevices
+                .FirstOrDefault(d => string.Equals(d.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase));
             if (device != null)
             {
                 _discoveredDevices.Remove(device);
@@ -429,7 +435,8 @@ public class TasmotaMdnsDiscoveryService : IDisposable
     {
         lock (_lockObject)
         {
-            return _discoveredDevices.FirstOrDefault(d => d.DeviceId == deviceId);
+            return _discoveredDevices
+                .FirstOrDefault(d => string.Equals(d.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase));
         }
     }
 

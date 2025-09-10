@@ -135,6 +135,105 @@
 
 
     private async Task ToggleAllRelays(bool targetState)
+{
+    if (isTogglingAll || !Board.IsOnline) return;
+
+    try
+    {
+        isTogglingAll = true;
+        StateHasChanged();
+
+        _client.SetIp(Board.IpAddress);
+
+        // Yeni TasmotaSharp client kullanarak tüm relay'leri tek komutla kontrol et
+        bool success = false;
+        
+        // Önce tüm relay'leri aynı anda kontrol etmeyi dene
+        success = await _client.SetAllRelaysAsync(targetState);
+        
+        // Eğer SetAllRelaysAsync başarısız olursa, belirli relay'leri grup halinde kontrol et
+        if (!success && Board.Relays.Any())
+        {
+            var relayNumbers = Board.Relays.Select(r => r.RelayNumber).ToArray();
+            success = await _client.SetRelayGroupAsync(relayNumbers, targetState);
+        }
+        
+        // Eğer grup kontrolü de başarısız olursa, tek tek kontrol et (fallback)
+        if (!success)
+        {
+            var tasks = Board.Relays.Select(async relay =>
+            {
+                try
+                {
+                    var result = await _client.SetRelayAsync(relay.RelayNumber, targetState);
+                    if (result.HasValue)
+                    {
+                        relay.IsOn = result.Value;
+                        relay.LastToggled = DateTime.Now;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Tek relay hatası tüm işlemi durdurmasın
+                    Console.WriteLine($"Error setting relay {relay.RelayNumber}: {ex.Message}");
+                }
+            });
+
+            await Task.WhenAll(tasks);
+        }
+        else
+        {
+            // Başarılı toplu işlemden sonra tüm relay'lerin durumunu güncelle
+            foreach (var relay in Board.Relays)
+            {
+                relay.IsOn = targetState;
+                relay.LastToggled = DateTime.Now;
+            }
+        }
+
+        await OnBoardUpdated.InvokeAsync(Board);
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"ToggleAllRelays error: {ex.Message}");
+        
+        // Hata durumunda fallback olarak tek tek relay kontrolü
+        try
+        {
+            var fallbackTasks = Board.Relays.Select(async relay =>
+            {
+                try
+                {
+                    var result = await _client.SetRelayAsync(relay.RelayNumber, targetState);
+                    if (result.HasValue)
+                    {
+                        relay.IsOn = result.Value;
+                        relay.LastToggled = DateTime.Now;
+                    }
+                }
+                catch
+                {
+                    // Ignore individual relay errors
+                }
+            });
+
+            await Task.WhenAll(fallbackTasks);
+            await OnBoardUpdated.InvokeAsync(Board);
+            StateHasChanged();
+        }
+        catch (Exception fallbackEx)
+        {
+            Console.WriteLine($"Fallback ToggleAllRelays error: {fallbackEx.Message}");
+        }
+    }
+    finally
+    {
+        isTogglingAll = false;
+        StateHasChanged();
+    }
+}
+    private async Task ToggleAllRelaysold(bool targetState)
     {
         if (isTogglingAll || !Board.IsOnline) return;
 
