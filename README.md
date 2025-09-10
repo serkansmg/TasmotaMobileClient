@@ -8,8 +8,8 @@ This application was developed with the goal of creating a stable, robust ESP32 
 
 With Language Localization Support
 
-<img src="screenshots/dashboardlang1.jpg" alt="Main Dashboard" width="300">
-<img src="screenshots/dashboardlang2.jpg" alt="Main Dashboard" width="300">
+<img src="screenshots/dashboardLang1.jpg" alt="Main Dashboard" width="300">
+<img src="screenshots/dashboardLang2.jpg" alt="Main Dashboard" width="300">
 
 ## Language Support
 
